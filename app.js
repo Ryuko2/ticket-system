@@ -23,7 +23,7 @@ const loginRequest = {
 let currentUser = null;
 
 // Dashboard state
-let currentDashboard = 'manual'; // 'manual' or 'whatsapp'
+let currentDashboard = 'manual'; // 'manual', 'whatsapp', or 'violations'
 
 // LJ Services Group - 19 Associations
 const ASSOCIATIONS = [
@@ -143,8 +143,24 @@ function setupEventListeners() {
     document.getElementById('deleteTicketBtn').addEventListener('click', handleDeleteTicket);
     
     // Dashboard switching
-    document.getElementById('switchDashboardBtn').addEventListener('click', switchDashboard);
+    document.getElementById('switchToViolationsBtn').addEventListener('click', () => switchToDashboard('violations'));
+    document.getElementById('switchToWhatsAppBtn').addEventListener('click', () => switchToDashboard('whatsapp'));
+    document.getElementById('switchToTicketsBtn').addEventListener('click', () => switchToDashboard('manual'));
     document.getElementById('setupWhatsAppBtn').addEventListener('click', openWhatsAppSetup);
+    
+    // Violations
+    document.getElementById('createViolationBtn').addEventListener('click', openCreateViolationModal);
+    document.getElementById('manageRulesBtn').addEventListener('click', openRulesModal);
+    document.getElementById('cincSyncBtn').addEventListener('click', openCincSyncModal);
+    
+    // Close modals
+    document.querySelector('.close-violation-modal').addEventListener('click', closeViolationModal);
+    document.querySelector('.cancel-violation-btn').addEventListener('click', closeViolationModal);
+    document.querySelector('.close-rules-modal').addEventListener('click', closeRulesModal);
+    document.querySelector('.close-cinc-modal').addEventListener('click', closeCincModal);
+    
+    // Forms
+    document.getElementById('violationForm').addEventListener('submit', handleViolationSubmit);
     
     // Close modals on outside click
     window.addEventListener('click', (e) => {
@@ -651,27 +667,233 @@ function updateStats() {
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', initApp);
 
-// Switch between Manual and WhatsApp dashboards
-function switchDashboard() {
+// Switch between dashboards
+function switchToDashboard(dashboard) {
     const manualSection = document.getElementById('manualTicketsSection');
     const whatsappSection = document.getElementById('whatsappTicketsSection');
-    const switchBtn = document.getElementById('dashboardSwitchText');
+    const violationsSection = document.getElementById('violationsSection');
+    const dashboardTitle = document.getElementById('dashboardTitle');
     
-    if (currentDashboard === 'manual') {
-        // Switch to WhatsApp
-        currentDashboard = 'whatsapp';
-        manualSection.classList.remove('active');
-        whatsappSection.classList.add('active');
-        switchBtn.textContent = '📋 Manual Tickets';
-        loadWhatsAppTickets();
-    } else {
-        // Switch to Manual
-        currentDashboard = 'manual';
-        whatsappSection.classList.remove('active');
-        manualSection.classList.add('active');
-        switchBtn.textContent = '📱 WhatsApp Tickets';
-        loadTickets();
+    // Hide all sections
+    manualSection.classList.remove('active');
+    whatsappSection.classList.remove('active');
+    violationsSection.classList.remove('active');
+    
+    // Hide all buttons
+    document.getElementById('createTicketBtn').style.display = 'none';
+    document.getElementById('createViolationBtn').style.display = 'none';
+    document.getElementById('switchToTicketsBtn').style.display = 'none';
+    
+    currentDashboard = dashboard;
+    
+    switch(dashboard) {
+        case 'manual':
+            manualSection.classList.add('active');
+            dashboardTitle.textContent = 'Ticket Dashboard';
+            document.getElementById('createTicketBtn').style.display = 'inline-block';
+            loadTickets();
+            break;
+            
+        case 'whatsapp':
+            whatsappSection.classList.add('active');
+            dashboardTitle.textContent = 'WhatsApp Tickets Dashboard';
+            document.getElementById('switchToTicketsBtn').style.display = 'inline-block';
+            loadWhatsAppTickets();
+            break;
+            
+        case 'violations':
+            violationsSection.classList.add('active');
+            dashboardTitle.textContent = 'Violations Management';
+            document.getElementById('createViolationBtn').style.display = 'inline-block';
+            document.getElementById('switchToTicketsBtn').style.display = 'inline-block';
+            loadViolations();
+            populateViolationFilters();
+            break;
     }
+}
+
+// Populate violation filters
+function populateViolationFilters() {
+    const assocFilter = document.getElementById('violationAssociationFilter');
+    const categoryFilter = document.getElementById('violationCategoryFilter');
+    
+    // Populate associations
+    ASSOCIATIONS.forEach(assoc => {
+        const option = document.createElement('option');
+        option.value = assoc;
+        option.textContent = assoc;
+        assocFilter.appendChild(option);
+    });
+    
+    // Populate categories
+    violationCategories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.name;
+        categoryFilter.appendChild(option);
+    });
+}
+
+// Open create violation modal
+function openCreateViolationModal() {
+    const modal = document.getElementById('violationModal');
+    const form = document.getElementById('violationForm');
+    
+    form.reset();
+    
+    // Populate associations
+    const assocSelect = document.getElementById('violationAssociation');
+    assocSelect.innerHTML = '<option value="">Select Association</option>';
+    ASSOCIATIONS.forEach(assoc => {
+        const option = document.createElement('option');
+        option.value = assoc;
+        option.textContent = assoc;
+        assocSelect.appendChild(option);
+    });
+    
+    // Populate categories
+    const categorySelect = document.getElementById('violationCategory');
+    categorySelect.innerHTML = '<option value="">Select Category</option>';
+    violationCategories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.name;
+        categorySelect.appendChild(option);
+    });
+    
+    // Populate rules when category is selected
+    categorySelect.addEventListener('change', function() {
+        const rulesSelect = document.getElementById('violationRules');
+        rulesSelect.innerHTML = '';
+        
+        const categoryRules = violationRules.filter(r => r.category === this.value);
+        categoryRules.forEach(rule => {
+            const option = document.createElement('option');
+            option.value = rule.rule;
+            option.textContent = rule.rule;
+            rulesSelect.appendChild(option);
+        });
+    });
+    
+    modal.classList.add('active');
+}
+
+function closeViolationModal() {
+    document.getElementById('violationModal').classList.remove('active');
+}
+
+function closeRulesModal() {
+    document.getElementById('rulesModal').classList.remove('active');
+}
+
+function closeCincModal() {
+    document.getElementById('cincSyncModal').classList.remove('active');
+}
+
+// Handle violation form submission
+async function handleViolationSubmit(e) {
+    e.preventDefault();
+    
+    const selectedRules = Array.from(document.getElementById('violationRules').selectedOptions).map(opt => opt.value);
+    
+    const violation = {
+        id: generateViolationId(),
+        homeownerName: document.getElementById('violationHomeowner').value,
+        unit: document.getElementById('violationUnit').value,
+        email: document.getElementById('violationEmail').value,
+        phone: document.getElementById('violationPhone').value || '',
+        association: document.getElementById('violationAssociation').value,
+        category: document.getElementById('violationCategory').value,
+        rules: selectedRules,
+        description: document.getElementById('violationDescription').value,
+        dateObserved: document.getElementById('violationDate').value,
+        status: document.getElementById('violationNoticeLevel').value,
+        deadline: document.getElementById('violationDeadline').value,
+        createdBy: currentUser.username || currentUser.name,
+        createdDate: new Date().toISOString(),
+        updates: []
+    };
+    
+    const violations = getViolations();
+    violations.push(violation);
+    saveViolations(violations);
+    
+    closeViolationModal();
+    
+    // Generate PDF
+    await generateViolationPDF(violation);
+    
+    loadViolations();
+    
+    // Ask if they want to send email
+    if (confirm('Violation created and PDF generated! Do you want to send it via email now?')) {
+        sendViolationEmail(violation);
+    }
+}
+
+// Send violation email
+async function sendViolationEmail(violation) {
+    // This would use Microsoft Graph API to send email
+    alert(`Email functionality: Would send violation ${violation.id} to ${violation.email}\n\nIn production, this will automatically send the PDF via Outlook.`);
+}
+
+// Open rules management modal
+function openRulesModal() {
+    const modal = document.getElementById('rulesModal');
+    loadRulesManager();
+    modal.classList.add('active');
+}
+
+// Load rules manager
+function loadRulesManager() {
+    const categoriesList = document.getElementById('categoriesList');
+    const rulesList = document.getElementById('rulesList');
+    
+    // Load categories
+    categoriesList.innerHTML = violationCategories.map(cat => `
+        <div class="category-item" data-category="${cat.id}">
+            ${cat.name}
+        </div>
+    `).join('');
+    
+    // Add category click listeners
+    document.querySelectorAll('.category-item').forEach(item => {
+        item.addEventListener('click', function() {
+            document.querySelectorAll('.category-item').forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            loadCategoryRules(this.dataset.category);
+        });
+    });
+    
+    // Load first category by default
+    if (violationCategories.length > 0) {
+        document.querySelector('.category-item').click();
+    }
+}
+
+// Load rules for a category
+function loadCategoryRules(categoryId) {
+    const rulesList = document.getElementById('rulesList');
+    const categoryRules = violationRules.filter(r => r.category === categoryId);
+    
+    rulesList.innerHTML = categoryRules.map(rule => `
+        <div class="rule-item">
+            <div class="rule-content">
+                <h4>${rule.rule}</h4>
+                <p>${rule.description}</p>
+            </div>
+            <div class="rule-actions">
+                <button class="btn-secondary btn-small">Edit</button>
+                <button class="btn-danger btn-small">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Open CINC sync modal
+function openCincSyncModal() {
+    const modal = document.getElementById('cincSyncModal');
+    modal.classList.add('active');
 }
 
 // Load WhatsApp tickets
