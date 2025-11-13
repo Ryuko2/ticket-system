@@ -39,13 +39,14 @@
         </nav>
 
         <div class="container">
-            <div class="dashboard-header">
-                <h1>Ticket Dashboard</h1>
+           <div class="dashboard-header">
+                <h1 id="dashboardTitle">Ticket Dashboard</h1>
                 <div class="header-actions">
-                    <button id="switchDashboardBtn" class="btn-secondary">
-                        <span id="dashboardSwitchText">📱 WhatsApp Tickets</span>
-                    </button>
+                    <button id="switchToViolationsBtn" class="btn-warning">🚨 Violations</button>
+                    <button id="switchToWhatsAppBtn" class="btn-secondary">📱 WhatsApp</button>
+                    <button id="switchToTicketsBtn" class="btn-secondary" style="display:none;">📋 Tickets</button>
                     <button id="createTicketBtn" class="btn-primary">+ Create New Ticket</button>
+                    <button id="createViolationBtn" class="btn-danger" style="display:none;">+ New Violation</button>
                 </div>
             </div>
 
