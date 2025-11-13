@@ -1,8 +1,7 @@
 // Microsoft Authentication Library (MSAL) Configuration
-
 const msalConfig = {
     auth: {
-        clientId: '9490235a-076b-464a-a4b7-c2a1b1156fe1',
+        clientId: '9490235a-076b-464a-a4b7-c2a1b1156fe1', // Replace with your Azure AD App Client ID
         authority: 'https://login.microsoftonline.com/common',
         redirectUri: window.location.origin + window.location.pathname
     },
@@ -23,36 +22,38 @@ const loginRequest = {
 // Current user
 let currentUser = null;
 
+// Dashboard state
+let currentDashboard = 'manual'; // 'manual' or 'whatsapp'
+
 // LJ Services Group - 19 Associations
 const ASSOCIATIONS = [
-    'Las Olas Beach Club',
-    'Plaza 3000 Condominium',
-    'The Continental',
-    'Oceanview Towers',
-    'Bayfront Plaza',
-    'Riverside Condominium',
-    'Palm Court Association',
-    'Marina Bay Complex',
-    'Sunset Gardens',
-    'Harbor View Residences',
-    'Tropical Estates',
-    'Beachside Manor',
-    'Downtown Square',
-    'Coral Ridge Towers',
-    'Atlantic Heights',
-    'Golden Shores',
-    'Paradise Point',
-    'Waterfront Commons',
-    'Executive Plaza'
+    'Anthony Gardens (ANT)',
+    'Bayshore Treasure Condominium (BTC)',
+    'Cambridge (CAM)',
+    'Eastside Condominium (EAST)',
+    'Enclave Waterside Villas Condominium Association (EWVCA)',
+    'Futura Sansovino Condominium Association, Inc (FSCA)',
+    'Island Point South (IPSCA)',
+    'Michelle Condominium (MICH)',
+    'Monterrey Condominium Property Association, Inc. (MTC)',
+    'Normandy Shores Condominium (NORM)',
+    'Oxford Gates (OX)',
+    'Palms Of Sunset Condominium Association, Inc (POSS)',
+    'Patricia Condominium (PAT)',
+    'Ritz Royal (RITZ)',
+    'Sage Condominium (SAGE)',
+    'The Niche (NICHE)',
+    'Vizcaya Villas Condominium (VVC)',
+    'Tower Gates (TWG)',
+    'Wilton Terrace Condominium (WTC)'
 ].sort();
 
 // Team members (add your actual team members)
 const TEAM_MEMBERS = [
-    'Linda Johnson',
-    'Kevin (You)',
-    'Team Member 1',
-    'Team Member 2',
-    'Team Member 3'
+    'Linda Johnson (ljohnson@ljservicesgroup.com)',
+    'Kevin Rodriguez (kevinr@ljservicesgroup.com)',
+    'Accounting (accounting@ljservicesgroup.com)',
+    'Admin (contact@ljservicesgroup.com)'
 ];
 
 // Initialize database in localStorage
@@ -141,6 +142,10 @@ function setupEventListeners() {
     document.getElementById('sendEmailBtn').addEventListener('click', handleSendEmail);
     document.getElementById('deleteTicketBtn').addEventListener('click', handleDeleteTicket);
     
+    // Dashboard switching
+    document.getElementById('switchDashboardBtn').addEventListener('click', switchDashboard);
+    document.getElementById('setupWhatsAppBtn').addEventListener('click', openWhatsAppSetup);
+    
     // Close modals on outside click
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
@@ -178,14 +183,27 @@ function handleLogout() {
 
 // Show login screen
 function showLogin() {
-    document.getElementById('loginScreen').classList.add('active');
-    document.getElementById('dashboardScreen').classList.remove('active');
+    const loginScreen = document.getElementById('loginScreen');
+    const dashboardScreen = document.getElementById('dashboardScreen');
+    
+    dashboardScreen.style.display = 'none';
+    dashboardScreen.classList.remove('active');
+    
+    loginScreen.style.display = 'flex';
+    setTimeout(() => loginScreen.classList.add('active'), 10);
 }
 
 // Show dashboard
 function showDashboard() {
-    document.getElementById('loginScreen').classList.remove('active');
-    document.getElementById('dashboardScreen').classList.add('active');
+    const loginScreen = document.getElementById('loginScreen');
+    const dashboardScreen = document.getElementById('dashboardScreen');
+    
+    loginScreen.style.display = 'none';
+    loginScreen.classList.remove('active');
+    
+    dashboardScreen.style.display = 'block';
+    setTimeout(() => dashboardScreen.classList.add('active'), 10);
+    
     document.getElementById('userEmail').textContent = currentUser.username || currentUser.name;
     
     loadTickets();
@@ -632,3 +650,67 @@ function updateStats() {
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', initApp);
+
+// Switch between Manual and WhatsApp dashboards
+function switchDashboard() {
+    const manualSection = document.getElementById('manualTicketsSection');
+    const whatsappSection = document.getElementById('whatsappTicketsSection');
+    const switchBtn = document.getElementById('dashboardSwitchText');
+    
+    if (currentDashboard === 'manual') {
+        // Switch to WhatsApp
+        currentDashboard = 'whatsapp';
+        manualSection.classList.remove('active');
+        whatsappSection.classList.add('active');
+        switchBtn.textContent = '📋 Manual Tickets';
+        loadWhatsAppTickets();
+    } else {
+        // Switch to Manual
+        currentDashboard = 'manual';
+        whatsappSection.classList.remove('active');
+        manualSection.classList.add('active');
+        switchBtn.textContent = '📱 WhatsApp Tickets';
+        loadTickets();
+    }
+}
+
+// Load WhatsApp tickets
+function loadWhatsAppTickets() {
+    const whatsappTickets = getWhatsAppTickets();
+    const ticketsList = document.getElementById('whatsappTicketsList');
+    
+    if (whatsappTickets.length === 0) {
+        ticketsList.innerHTML = `
+            <div class="empty-state">
+                <h3>No WhatsApp tickets yet</h3>
+                <p>Tickets created by the WhatsApp bot will appear here</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort tickets by created date (newest first)
+    whatsappTickets.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+    
+    ticketsList.innerHTML = whatsappTickets.map(ticket => createTicketCard(ticket)).join('');
+    
+    // Add click listeners
+    document.querySelectorAll('#whatsappTicketsList .ticket-card').forEach(card => {
+        card.addEventListener('click', () => openTicketDetail(card.dataset.ticketId));
+    });
+}
+
+// Get WhatsApp tickets from localStorage
+function getWhatsAppTickets() {
+    return JSON.parse(localStorage.getItem('whatsappTickets') || '[]');
+}
+
+// Save WhatsApp tickets
+function saveWhatsAppTickets(tickets) {
+    localStorage.setItem('whatsappTickets', JSON.stringify(tickets));
+}
+
+// Open WhatsApp setup modal
+function openWhatsAppSetup() {
+    alert('WhatsApp Bot Setup:\n\n1. You need a WhatsApp Business API account\n2. Sign up at: https://business.whatsapp.com\n3. Get your API credentials\n4. Configure webhook URL\n\nDetailed setup guide has been created in WHATSAPP_SETUP.md');
+}
