@@ -1,38 +1,13 @@
-// Microsoft Authentication Configuration
-const msalConfig = {
-    auth: {
-        clientId: "9490235a-076b-464a-a4b7-c2a1b1156fe1",
-        authority: "https://login.microsoftonline.com/common",
-        redirectUri: "https://ryuko2.github.io/ticket-system/"
-    },
-    cache: {
-        cacheLocation: "localStorage",
-        storeAuthStateInCookie: false
-    }
-};
+// ============================================
+// LJ Services Group - Ticketing System
+// Microsoft Login + Dropbox Sync + WhatsApp + Violations
+// ============================================
 
-const loginRequest = {
-    scopes: ["User.Read", "Mail.Send"]
-};
+// -------------------------
+// Basic Configuration
+// -------------------------
 
-// Initialize MSAL
-const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-// Current user
-let currentUser = null;
-
-// Dashboard state
-let currentDashboard = 'manual'; // 'manual', 'whatsapp', or 'violations'
-
-// Team members (can be expanded)
-const TEAM_MEMBERS = [
-    'Linda Johnson',
-    'Kevin Rodriguez',
-    'Assistant Manager',
-    'Maintenance Team'
-];
-
-// All 19 associations
+// All 19 associations (from your original app)
 const ASSOCIATIONS = [
     'Anthony Gardens (ANT)',
     'Bayshore Treasure Condominium (BTC)',
@@ -53,85 +28,311 @@ const ASSOCIATIONS = [
     'Porto Bellagio 4 (PB4)',
     'Renaissance (REN)',
     'Yacht Club at Brickell (YCB)'
-];
+].sort();
 
-// Initialize app
+// Team members
+const TEAM_MEMBERS = [
+    'Linda Johnson',
+    'Kevin Rodriguez',
+    'Assistant Manager',
+    'Maintenance Team'
+].sort();
+
+// Dashboard state
+let currentDashboard = 'manual'; // 'manual', 'whatsapp', 'violations'
+
+// -------------------------
+// Microsoft Authentication (your original app registration)
+// -------------------------
+
+const msalConfig = {
+    auth: {
+        clientId: "9490235a-076b-464a-a4b7-c2a1b1156fe1",
+        authority: "https://login.microsoftonline.com/common",
+        redirectUri: "https://ryuko2.github.io/ticket-system/"
+    },
+    cache: {
+        cacheLocation: "localStorage",
+        storeAuthStateInCookie: false
+    }
+};
+
+const loginRequest = {
+    scopes: ["User.Read", "Mail.Send"]
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+let currentUser = null;
+
+// -------------------------
+// Dropbox Configuration
+// -------------------------
+
+const DROPBOX_CLIENT_ID = 'gazrj3d6rgyf6eb'; // 🔁 REPLACE THIS
+const DROPBOX_CONFIG = {
+    accessToken: null,
+    folderPath: '/LJ_Services_Ticketing',
+    fileName: 'tickets.json'
+};
+
+class DropboxStorage {
+    constructor() {
+        this.accessToken = localStorage.getItem('dropbox_token') || null;
+        this.lastSync = localStorage.getItem('last_sync') || null;
+        if (this.accessToken) {
+            DROPBOX_CONFIG.accessToken = this.accessToken;
+        }
+    }
+
+    isAuthenticated() {
+        return !!this.accessToken;
+    }
+
+    // Open OAuth in same page (implicit grant)
+    authenticate() {
+        const redirectUri = window.location.origin + window.location.pathname;
+        const authUrl = `https://www.dropbox.com/oauth2/authorize?response_type=token&client_id=${encodeURIComponent(
+            DROPBOX_CLIENT_ID
+        )}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+        window.location.href = authUrl;
+    }
+
+    async uploadTickets(ticketsData) {
+        if (!this.accessToken) throw new Error('Not authenticated with Dropbox');
+
+        const path = `${DROPBOX_CONFIG.folderPath}/${DROPBOX_CONFIG.fileName}`;
+        const content = JSON.stringify(ticketsData, null, 2);
+
+        const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.accessToken}`,
+                'Dropbox-API-Arg': JSON.stringify({
+                    path,
+                    mode: 'overwrite',
+                    autorename: false,
+                    mute: false
+                }),
+                'Content-Type': 'application/octet-stream'
+            },
+            body: content
+        });
+
+        if (!response.ok) {
+            throw new Error(`Dropbox upload failed: ${response.status}`);
+        }
+
+        this.lastSync = new Date().toISOString();
+        localStorage.setItem('last_sync', this.lastSync);
+        updateSyncStatus('✓ Synced to Dropbox', 'success');
+    }
+
+    async downloadTickets() {
+        if (!this.accessToken) throw new Error('Not authenticated with Dropbox');
+
+        const path = `${DROPBOX_CONFIG.folderPath}/${DROPBOX_CONFIG.fileName}`;
+
+        const response = await fetch('https://content.dropboxapi.com/2/files/download', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.accessToken}`,
+                'Dropbox-API-Arg': JSON.stringify({ path })
+            }
+        });
+
+        if (response.status === 409) {
+            // File not found yet
+            return { tickets: [] };
+        }
+
+        if (!response.ok) {
+            throw new Error(`Dropbox download failed: ${response.status}`);
+        }
+
+        const text = await response.text();
+        const data = JSON.parse(text);
+        this.lastSync = new Date().toISOString();
+        localStorage.setItem('last_sync', this.lastSync);
+        updateSyncStatus('✓ Synced from Dropbox', 'success');
+        return data;
+    }
+
+    // Merge local + remote (remote wins if newer updatedAt)
+    mergeTickets(localTickets, remoteTickets) {
+        const map = new Map();
+
+        const ensureUpdatedAt = (t) => t.updatedAt || t.createdDate || new Date().toISOString();
+
+        localTickets.forEach(t => {
+            const copy = { ...t };
+            copy.updatedAt = ensureUpdatedAt(copy);
+            map.set(copy.id, copy);
+        });
+
+        remoteTickets.forEach(t => {
+            const copy = { ...t };
+            copy.updatedAt = ensureUpdatedAt(copy);
+            const existing = map.get(copy.id);
+            if (!existing || new Date(copy.updatedAt) > new Date(existing.updatedAt)) {
+                map.set(copy.id, copy);
+            }
+        });
+
+        return Array.from(map.values());
+    }
+
+    async syncTickets(localTickets) {
+        if (!this.accessToken) throw new Error('Not authenticated with Dropbox');
+
+        updateSyncStatus('⟳ Syncing...', 'syncing');
+
+        const remoteData = await this.downloadTickets();
+        const remoteTickets = remoteData.tickets || [];
+
+        const merged = this.mergeTickets(localTickets, remoteTickets);
+
+        await this.uploadTickets({
+            tickets: merged,
+            lastSync: new Date().toISOString(),
+            syncedBy: currentUser?.username || currentUser?.name || 'unknown'
+        });
+
+        return merged;
+    }
+
+    getDropboxFolderUrl() {
+        return `https://www.dropbox.com/home${DROPBOX_CONFIG.folderPath}`;
+    }
+}
+
+const dropboxStorage = new DropboxStorage();
+
+// -------------------------
+// Utility: local tickets
+// -------------------------
+
+function getTickets() {
+    return JSON.parse(localStorage.getItem('tickets') || '[]');
+}
+
+function saveTickets(tickets) {
+    localStorage.setItem('tickets', JSON.stringify(tickets));
+}
+
+// Generate incremental ID like TKT-00001
+function generateTicketId() {
+    const tickets = getTickets();
+    const lastNumeric = tickets.length
+        ? Math.max(...tickets.map(t => parseInt(String(t.id).replace('TKT-', '')) || 0))
+        : 0;
+    const next = lastNumeric + 1;
+    return `TKT-${String(next).padStart(5, '0')}`;
+}
+
+// -------------------------
+// Initialization
+// -------------------------
+
+document.addEventListener('DOMContentLoaded', initApp);
+
 async function initApp() {
-    console.log('Initializing app...');
-    
-    // Check if user is already logged in
+    // Handle Dropbox redirect (access_token in hash)
+    if (window.location.hash.includes('access_token')) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const token = params.get('access_token');
+        if (token) {
+            localStorage.setItem('dropbox_token', token);
+            dropboxStorage.accessToken = token;
+            DROPBOX_CONFIG.accessToken = token;
+            window.history.replaceState({}, document.title, window.location.pathname);
+            showNotification('Dropbox connected successfully!', 'success');
+        }
+    }
+
+    // Try MSAL silent login
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
         currentUser = accounts[0];
-        showDashboard();
     }
-    
+
     setupEventListeners();
     populateDropdowns();
+
+    if (currentUser) {
+        showDashboard();
+    } else {
+        document.getElementById('loginScreen').classList.add('active');
+    }
+
+    // Initial sync status UI
+    if (dropboxStorage.isAuthenticated()) {
+        updateSyncStatus('Dropbox connected', 'success');
+    } else {
+        updateSyncStatus('Dropbox not connected', 'info');
+    }
 }
 
-// Setup all event listeners
+// -------------------------
+// Event Listeners
+// -------------------------
+
 function setupEventListeners() {
-    // Login/Logout
-    document.getElementById('loginButton').addEventListener('click', handleLogin);
-    document.getElementById('logoutButton').addEventListener('click', handleLogout);
-    
+    // Login / Logout
+    const loginButton = document.getElementById('loginButton');
+    const dropboxLoginBtn = document.getElementById('dropboxLoginBtn');
+    const demoLoginBtn = document.getElementById('demoLoginBtn');
+    const logoutButton = document.getElementById('logoutButton');
+
+    if (loginButton) loginButton.addEventListener('click', handleLogin);
+    if (dropboxLoginBtn) dropboxLoginBtn.addEventListener('click', handleDropboxLogin);
+    if (demoLoginBtn) demoLoginBtn.addEventListener('click', handleDemoLogin);
+    if (logoutButton) logoutButton.addEventListener('click', handleLogout);
+
     // Ticket management
-    document.getElementById('createTicketBtn').addEventListener('click', openCreateTicketModal);
-    document.querySelector('.close-modal').addEventListener('click', closeTicketModal);
-    document.querySelector('.cancel-btn').addEventListener('click', closeTicketModal);
-    document.getElementById('ticketForm').addEventListener('submit', handleTicketSubmit);
-    
+    document.getElementById('createTicketBtn')?.addEventListener('click', openCreateTicketModal);
+    document.querySelector('.close-modal')?.addEventListener('click', closeTicketModal);
+    document.querySelector('.cancel-btn')?.addEventListener('click', closeTicketModal);
+    document.getElementById('ticketForm')?.addEventListener('submit', handleTicketSubmit);
+
     // Ticket detail
-    document.querySelector('.close-detail-modal').addEventListener('click', closeTicketDetailModal);
-    document.getElementById('addUpdateBtn').addEventListener('click', addTicketUpdate);
-    document.getElementById('detailStatus').addEventListener('change', updateTicketStatus);
-    document.getElementById('detailAssignedTo').addEventListener('change', updateTicketAssignment);
-    document.getElementById('sendEmailBtn').addEventListener('click', sendEmailUpdate);
-    document.getElementById('deleteTicketBtn').addEventListener('click', deleteTicket);
-    
+    document.querySelector('.close-detail-modal')?.addEventListener('click', closeTicketDetailModal);
+    document.getElementById('addUpdateBtn')?.addEventListener('click', addTicketUpdate);
+    document.getElementById('detailStatus')?.addEventListener('change', onDetailStatusChange);
+    document.getElementById('detailAssignedTo')?.addEventListener('change', onDetailAssignChange);
+    document.getElementById('sendEmailBtn')?.addEventListener('click', sendEmailUpdate);
+    document.getElementById('deleteTicketBtn')?.addEventListener('click', deleteTicket);
+
     // Filters
-    document.getElementById('statusFilter').addEventListener('change', applyFilters);
-    document.getElementById('associationFilter').addEventListener('change', applyFilters);
-    document.getElementById('priorityFilter').addEventListener('change', applyFilters);
-    document.getElementById('searchInput').addEventListener('input', applyFilters);
-    
+    document.getElementById('statusFilter')?.addEventListener('change', applyFilters);
+    document.getElementById('associationFilter')?.addEventListener('change', applyFilters);
+    document.getElementById('priorityFilter')?.addEventListener('change', applyFilters);
+    document.getElementById('searchInput')?.addEventListener('input', applyFilters);
+
     // Dashboard switching
-    const switchToViolationsBtn = document.getElementById('switchToViolationsBtn');
-    const switchToWhatsAppBtn = document.getElementById('switchToWhatsAppBtn');
-    const switchToTicketsBtn = document.getElementById('switchToTicketsBtn');
-    const setupWhatsAppBtn = document.getElementById('setupWhatsAppBtn');
-    
-    if (switchToViolationsBtn) switchToViolationsBtn.addEventListener('click', () => switchToDashboard('violations'));
-    if (switchToWhatsAppBtn) switchToWhatsAppBtn.addEventListener('click', () => switchToDashboard('whatsapp'));
-    if (switchToTicketsBtn) switchToTicketsBtn.addEventListener('click', () => switchToDashboard('manual'));
-    if (setupWhatsAppBtn) setupWhatsAppBtn.addEventListener('click', openWhatsAppSetup);
-    
-    // Violations
-    const createViolationBtn = document.getElementById('createViolationBtn');
-    const manageRulesBtn = document.getElementById('manageRulesBtn');
-    const cincSyncBtn = document.getElementById('cincSyncBtn');
-    
-    if (createViolationBtn) createViolationBtn.addEventListener('click', openCreateViolationModal);
-    if (manageRulesBtn) manageRulesBtn.addEventListener('click', openRulesModal);
-    if (cincSyncBtn) cincSyncBtn.addEventListener('click', openCincSyncModal);
-    
-    // Close modals
-    const closeViolationModal = document.querySelector('.close-violation-modal');
-    const cancelViolationBtn = document.querySelector('.cancel-violation-btn');
-    const closeRulesModal = document.querySelector('.close-rules-modal');
-    const closeCincModal = document.querySelector('.close-cinc-modal');
-    
-    if (closeViolationModal) closeViolationModal.addEventListener('click', closeViolationModalFunc);
-    if (cancelViolationBtn) cancelViolationBtn.addEventListener('click', closeViolationModalFunc);
-    if (closeRulesModal) closeRulesModal.addEventListener('click', closeRulesModalFunc);
-    if (closeCincModal) closeCincModal.addEventListener('click', closeCincModalFunc);
-    
-    // Forms
-    const violationForm = document.getElementById('violationForm');
-    if (violationForm) violationForm.addEventListener('submit', handleViolationSubmit);
-    
-    // Close modals on outside click
+    document.getElementById('switchToViolationsBtn')?.addEventListener('click', () => switchToDashboard('violations'));
+    document.getElementById('switchToWhatsAppBtn')?.addEventListener('click', () => switchToDashboard('whatsapp'));
+    document.getElementById('switchToTicketsBtn')?.addEventListener('click', () => switchToDashboard('manual'));
+    document.getElementById('setupWhatsAppBtn')?.addEventListener('click', openWhatsAppSetup);
+
+    // Violations (wired to violations.js if present)
+    document.getElementById('createViolationBtn')?.addEventListener('click', () => {
+        if (typeof openCreateViolationModal === 'function') openCreateViolationModal();
+    });
+    document.getElementById('manageRulesBtn')?.addEventListener('click', () => {
+        if (typeof openRulesModal === 'function') openRulesModal();
+    });
+    document.getElementById('cincSyncBtn')?.addEventListener('click', () => {
+        if (typeof openCincSyncModal === 'function') openCincSyncModal();
+    });
+
+    // Dropbox buttons
+    document.getElementById('syncDropboxBtn')?.addEventListener('click', handleManualSync);
+    document.getElementById('viewDropboxBtn')?.addEventListener('click', () => {
+        window.open(dropboxStorage.getDropboxFolderUrl(), '_blank');
+    });
+    document.getElementById('exportBtn')?.addEventListener('click', exportToExcel);
+
+    // Close modals when clicking outside
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
             e.target.classList.remove('active');
@@ -139,79 +340,21 @@ function setupEventListeners() {
     });
 }
 
-// Modal close functions
-function closeViolationModalFunc() {
-    const modal = document.getElementById('violationModal');
-    if (modal) modal.classList.remove('active');
-}
+// -------------------------
+// Auth Handlers
+// -------------------------
 
-function closeRulesModalFunc() {
-    const modal = document.getElementById('rulesModal');
-    if (modal) modal.classList.remove('active');
-}
-
-function closeCincModalFunc() {
-    const modal = document.getElementById('cincSyncModal');
-    if (modal) modal.classList.remove('active');
-}
-
-// Populate dropdowns
-function populateDropdowns() {
-    // Populate associations
-    const associationSelects = [
-        document.getElementById('ticketAssociation'),
-        document.getElementById('associationFilter')
-    ];
-    
-    associationSelects.forEach(select => {
-        if (select && select.id !== 'associationFilter') {
-            ASSOCIATIONS.forEach(assoc => {
-                const option = document.createElement('option');
-                option.value = assoc;
-                option.textContent = assoc;
-                select.appendChild(option);
-            });
-        } else if (select) {
-            ASSOCIATIONS.forEach(assoc => {
-                const option = document.createElement('option');
-                option.value = assoc;
-                option.textContent = assoc;
-                select.appendChild(option);
-            });
-        }
-    });
-    
-    // Populate team members
-    const assignSelects = [
-        document.getElementById('ticketAssignedTo'),
-        document.getElementById('detailAssignedTo')
-    ];
-    
-    assignSelects.forEach(select => {
-        if (select) {
-            TEAM_MEMBERS.forEach(member => {
-                const option = document.createElement('option');
-                option.value = member;
-                option.textContent = member;
-                select.appendChild(option);
-            });
-        }
-    });
-}
-
-// Handle Microsoft Login
 async function handleLogin() {
     try {
-        const loginResponse = await msalInstance.loginPopup(loginRequest);
-        currentUser = loginResponse.account;
+        const response = await msalInstance.loginPopup(loginRequest);
+        currentUser = response.account;
         showDashboard();
-    } catch (error) {
-        console.error('Login error:', error);
+    } catch (err) {
+        console.error('Login error:', err);
         alert('Login failed. Please try again.');
     }
 }
 
-// Handle Logout
 function handleLogout() {
     msalInstance.logoutPopup();
     currentUser = null;
@@ -219,38 +362,55 @@ function handleLogout() {
     document.getElementById('loginScreen').classList.add('active');
 }
 
-// Show Dashboard
+function handleDropboxLogin() {
+    dropboxStorage.authenticate();
+}
+
+function handleDemoLogin() {
+    // fake user without MSAL (for testing UI)
+    currentUser = {
+        username: 'demo@ljservicesgroup.com',
+        name: 'Demo User'
+    };
+    showDashboard();
+}
+
+// -------------------------
+// Dashboard UI
+// -------------------------
+
 function showDashboard() {
     document.getElementById('loginScreen').classList.remove('active');
     document.getElementById('dashboardScreen').classList.add('active');
-    document.getElementById('userEmail').textContent = currentUser.username || currentUser.name;
+
+    const emailLabel = document.getElementById('userEmail');
+    if (emailLabel) {
+        emailLabel.textContent = currentUser.username || currentUser.name || 'User';
+    }
+
+    // Sync button visibility
+    const syncStatus = document.getElementById('syncStatus');
+    if (dropboxStorage.isAuthenticated()) {
+        updateSyncStatus('Dropbox connected', 'success');
+        if (syncStatus) syncStatus.style.display = 'inline-block';
+    } else {
+        updateSyncStatus('Dropbox not connected', 'info');
+    }
+
     loadTickets();
     updateStats();
 }
 
-// Get tickets from localStorage
-function getTickets() {
-    return JSON.parse(localStorage.getItem('tickets') || '[]');
-}
+// -------------------------
+// Tickets: load / render
+// -------------------------
 
-// Save tickets to localStorage
-function saveTickets(tickets) {
-    localStorage.setItem('tickets', JSON.stringify(tickets));
-}
-
-// Generate ticket ID
-function generateTicketId() {
-    const tickets = getTickets();
-    const lastId = tickets.length > 0 ? 
-        Math.max(...tickets.map(t => parseInt(t.id.replace('TKT-', '')))) : 0;
-    return `TKT-${String(lastId + 1).padStart(5, '0')}`;
-}
-
-// Load tickets
 function loadTickets() {
     const tickets = getTickets().filter(t => !t.fromWhatsApp);
     const ticketsList = document.getElementById('ticketsList');
-    
+
+    if (!ticketsList) return;
+
     if (tickets.length === 0) {
         ticketsList.innerHTML = `
             <div class="empty-state">
@@ -260,30 +420,29 @@ function loadTickets() {
         `;
         return;
     }
-    
-    // Sort by date (newest first)
+
     tickets.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-    
-    ticketsList.innerHTML = tickets.map(ticket => createTicketCard(ticket)).join('');
-    
-    // Add click listeners
+
+    ticketsList.innerHTML = tickets.map(createTicketCard).join('');
+
     document.querySelectorAll('.ticket-card').forEach(card => {
         card.addEventListener('click', () => openTicketDetail(card.dataset.ticketId));
     });
 }
 
-// Create ticket card HTML
 function createTicketCard(ticket) {
     const createdDate = new Date(ticket.createdDate).toLocaleDateString();
-    const dueDate = ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date';
-    
     return `
         <div class="ticket-card" data-ticket-id="${ticket.id}">
             <div class="ticket-header">
                 <h3>${ticket.title}</h3>
                 <div class="ticket-badges">
-                    <span class="badge status-badge ${ticket.status}">${ticket.status.replace('-', ' ').toUpperCase()}</span>
-                    <span class="badge priority-badge ${ticket.priority}">${ticket.priority.toUpperCase()}</span>
+                    <span class="badge status-badge ${ticket.status}">
+                        ${ticket.status.replace('-', ' ').toUpperCase()}
+                    </span>
+                    <span class="badge priority-badge ${ticket.priority}">
+                        ${ticket.priority.toUpperCase()}
+                    </span>
                 </div>
             </div>
             <p class="ticket-description">${ticket.description}</p>
@@ -297,36 +456,37 @@ function createTicketCard(ticket) {
     `;
 }
 
-// Update statistics
 function updateStats() {
     const tickets = getTickets().filter(t => !t.fromWhatsApp);
-    
     const open = tickets.filter(t => t.status === 'open').length;
     const inProgress = tickets.filter(t => t.status === 'in-progress').length;
     const completed = tickets.filter(t => t.status === 'completed').length;
-    
+
     document.getElementById('openTickets').textContent = open;
     document.getElementById('inProgressTickets').textContent = inProgress;
     document.getElementById('completedTickets').textContent = completed;
     document.getElementById('totalTickets').textContent = tickets.length;
 }
 
-// Open create ticket modal
+// -------------------------
+// Ticket creation / editing
+// -------------------------
+
 function openCreateTicketModal() {
     document.getElementById('ticketModal').classList.add('active');
     document.getElementById('modalTitle').textContent = 'Create New Ticket';
     document.getElementById('ticketForm').reset();
 }
 
-// Close ticket modal
 function closeTicketModal() {
     document.getElementById('ticketModal').classList.remove('active');
 }
 
-// Handle ticket form submission
 function handleTicketSubmit(e) {
     e.preventDefault();
-    
+
+    const now = new Date().toISOString();
+
     const ticket = {
         id: generateTicketId(),
         title: document.getElementById('ticketTitle').value,
@@ -337,202 +497,196 @@ function handleTicketSubmit(e) {
         dueDate: document.getElementById('ticketDueDate').value || null,
         status: 'open',
         createdBy: currentUser.username || currentUser.name,
-        createdDate: new Date().toISOString(),
+        createdDate: now,
+        updatedAt: now,
         updates: [],
         fromWhatsApp: false
     };
-    
+
     const tickets = getTickets();
     tickets.push(ticket);
     saveTickets(tickets);
-    
+
     closeTicketModal();
     loadTickets();
     updateStats();
 }
-// Open ticket detail
+
+// -------------------------
+// Ticket detail modal
+// -------------------------
+
 function openTicketDetail(ticketId) {
     const tickets = getTickets();
     const ticket = tickets.find(t => t.id === ticketId);
-    
     if (!ticket) return;
-    
-    // Store current ticket ID for updates
-    document.getElementById('ticketDetailModal').dataset.ticketId = ticketId;
-    
-    // Populate detail modal
+
+    const modal = document.getElementById('ticketDetailModal');
+    modal.dataset.ticketId = ticketId;
+
     document.getElementById('detailTicketTitle').textContent = ticket.title;
     document.getElementById('detailDescription').textContent = ticket.description;
     document.getElementById('detailStatus').value = ticket.status;
-    document.getElementById('detailPriority').textContent = ticket.priority.toUpperCase();
-    document.getElementById('detailPriority').className = `priority-badge ${ticket.priority}`;
+
+    const priorityElem = document.getElementById('detailPriority');
+    priorityElem.textContent = ticket.priority.toUpperCase();
+    priorityElem.className = `priority-badge ${ticket.priority}`;
+
     document.getElementById('detailAssociation').textContent = ticket.association;
     document.getElementById('detailAssignedTo').value = ticket.assignedTo || '';
     document.getElementById('detailCreatedBy').textContent = ticket.createdBy;
     document.getElementById('detailCreatedDate').textContent = new Date(ticket.createdDate).toLocaleString();
-    document.getElementById('detailDueDate').textContent = ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date';
+    document.getElementById('detailDueDate').textContent = ticket.dueDate
+        ? new Date(ticket.dueDate).toLocaleDateString()
+        : 'No due date';
     document.getElementById('detailTicketId').textContent = ticket.id;
-    
-    // Load updates
+
     loadTicketUpdates(ticket);
-    
-    // Show modal
-    document.getElementById('ticketDetailModal').classList.add('active');
+
+    modal.classList.add('active');
 }
 
-// Close ticket detail modal
 function closeTicketDetailModal() {
     document.getElementById('ticketDetailModal').classList.remove('active');
 }
 
-// Load ticket updates
 function loadTicketUpdates(ticket) {
     const updatesList = document.getElementById('ticketUpdates');
-    
+
     if (!ticket.updates || ticket.updates.length === 0) {
         updatesList.innerHTML = '<p class="no-updates">No updates yet</p>';
         return;
     }
-    
-    updatesList.innerHTML = ticket.updates.map(update => `
+
+    updatesList.innerHTML = ticket.updates
+        .map(
+            (u) => `
         <div class="update-item">
             <div class="update-header">
-                <strong>${update.user}</strong>
-                <span class="update-date">${new Date(update.date).toLocaleString()}</span>
+                <strong>${u.user}</strong>
+                <span class="update-date">${new Date(u.date).toLocaleString()}</span>
             </div>
-            <p class="update-text">${update.text}</p>
+            <p class="update-text">${u.text}</p>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
-// Add ticket update
 function addTicketUpdate() {
     const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
-    const updateText = document.getElementById('newUpdate').value.trim();
-    
-    if (!updateText) return;
-    
+    const text = document.getElementById('newUpdate').value.trim();
+    if (!text) return;
+
     const tickets = getTickets();
     const ticket = tickets.find(t => t.id === ticketId);
-    
     if (!ticket) return;
-    
-    const update = {
+
+    const now = new Date().toISOString();
+
+    ticket.updates.push({
         user: currentUser.username || currentUser.name,
-        date: new Date().toISOString(),
-        text: updateText
-    };
-    
-    ticket.updates.push(update);
+        date: now,
+        text
+    });
+    ticket.updatedAt = now;
+
     saveTickets(tickets);
-    
     loadTicketUpdates(ticket);
     document.getElementById('newUpdate').value = '';
 }
 
-// Update ticket status
-function updateTicketStatus(e) {
-    const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
+// status change from detail dropdown
+function onDetailStatusChange(e) {
     const newStatus = e.target.value;
-    
+    const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
+
     const tickets = getTickets();
     const ticket = tickets.find(t => t.id === ticketId);
-    
     if (!ticket) return;
-    
+
+    const now = new Date().toISOString();
     ticket.status = newStatus;
-    
-    // Add automatic update
-    const update = {
+    ticket.updatedAt = now;
+    ticket.updates.push({
         user: currentUser.username || currentUser.name,
-        date: new Date().toISOString(),
+        date: now,
         text: `Status changed to: ${newStatus.replace('-', ' ').toUpperCase()}`
-    };
-    
-    ticket.updates.push(update);
+    });
+
     saveTickets(tickets);
-    
     loadTicketUpdates(ticket);
     loadTickets();
     updateStats();
 }
 
-// Update ticket assignment
-function updateTicketAssignment(e) {
-    const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
+// assignee change from detail dropdown
+function onDetailAssignChange(e) {
     const newAssignee = e.target.value;
-    
+    const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
+
     const tickets = getTickets();
     const ticket = tickets.find(t => t.id === ticketId);
-    
     if (!ticket) return;
-    
+
+    const now = new Date().toISOString();
     ticket.assignedTo = newAssignee;
-    
-    // Add automatic update
-    const update = {
+    ticket.updatedAt = now;
+    ticket.updates.push({
         user: currentUser.username || currentUser.name,
-        date: new Date().toISOString(),
+        date: now,
         text: newAssignee ? `Assigned to: ${newAssignee}` : 'Unassigned'
-    };
-    
-    ticket.updates.push(update);
+    });
+
     saveTickets(tickets);
-    
     loadTicketUpdates(ticket);
     loadTickets();
 }
 
-// Send email update (placeholder)
 function sendEmailUpdate() {
-    alert('Email functionality will be integrated with Microsoft Graph API');
+    alert('Email functionality will be integrated with Microsoft Graph API later.');
 }
 
-// Delete ticket
 function deleteTicket() {
     if (!confirm('Are you sure you want to delete this ticket?')) return;
-    
+
     const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
     let tickets = getTickets();
     tickets = tickets.filter(t => t.id !== ticketId);
     saveTickets(tickets);
-    
+
     closeTicketDetailModal();
     loadTickets();
     updateStats();
 }
 
-// Apply filters
+// -------------------------
+// Filters
+// -------------------------
+
 function applyFilters() {
     const statusFilter = document.getElementById('statusFilter').value;
     const associationFilter = document.getElementById('associationFilter').value;
     const priorityFilter = document.getElementById('priorityFilter').value;
     const searchText = document.getElementById('searchInput').value.toLowerCase();
-    
+
     let tickets = getTickets().filter(t => !t.fromWhatsApp);
-    
-    if (statusFilter) {
-        tickets = tickets.filter(t => t.status === statusFilter);
-    }
-    
-    if (associationFilter) {
-        tickets = tickets.filter(t => t.association === associationFilter);
-    }
-    
-    if (priorityFilter) {
-        tickets = tickets.filter(t => t.priority === priorityFilter);
-    }
-    
+
+    if (statusFilter) tickets = tickets.filter(t => t.status === statusFilter);
+    if (associationFilter) tickets = tickets.filter(t => t.association === associationFilter);
+    if (priorityFilter) tickets = tickets.filter(t => t.priority === priorityFilter);
     if (searchText) {
-        tickets = tickets.filter(t => 
-            t.title.toLowerCase().includes(searchText) ||
-            t.description.toLowerCase().includes(searchText) ||
-            t.id.toLowerCase().includes(searchText)
+        tickets = tickets.filter(
+            t =>
+                t.title.toLowerCase().includes(searchText) ||
+                t.description.toLowerCase().includes(searchText) ||
+                String(t.id).toLowerCase().includes(searchText)
         );
     }
-    
+
     const ticketsList = document.getElementById('ticketsList');
-    
+    if (!ticketsList) return;
+
     if (tickets.length === 0) {
         ticketsList.innerHTML = `
             <div class="empty-state">
@@ -542,22 +696,26 @@ function applyFilters() {
         `;
         return;
     }
-    
+
     tickets.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-    ticketsList.innerHTML = tickets.map(ticket => createTicketCard(ticket)).join('');
-    
+    ticketsList.innerHTML = tickets.map(createTicketCard).join('');
+
     document.querySelectorAll('.ticket-card').forEach(card => {
         card.addEventListener('click', () => openTicketDetail(card.dataset.ticketId));
     });
 }
 
-// WhatsApp Bot functionality
+// -------------------------
+// WhatsApp tickets
+// -------------------------
+
 function loadWhatsAppTickets() {
     const tickets = getTickets().filter(t => t.fromWhatsApp);
-    const ticketsList = document.getElementById('whatsappTicketsList');
-    
+    const list = document.getElementById('whatsappTicketsList');
+    if (!list) return;
+
     if (tickets.length === 0) {
-        ticketsList.innerHTML = `
+        list.innerHTML = `
             <div class="empty-state">
                 <h3>No WhatsApp tickets yet</h3>
                 <p>Configure the WhatsApp bot to start receiving tickets</p>
@@ -565,331 +723,213 @@ function loadWhatsAppTickets() {
         `;
         return;
     }
-    
+
     tickets.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-    ticketsList.innerHTML = tickets.map(ticket => createTicketCard(ticket)).join('');
-    
+    list.innerHTML = tickets.map(createTicketCard).join('');
+
     document.querySelectorAll('.ticket-card').forEach(card => {
         card.addEventListener('click', () => openTicketDetail(card.dataset.ticketId));
     });
 }
 
 function openWhatsAppSetup() {
-    alert('WhatsApp Bot Setup:\n\n1. Configure your WhatsApp Business API\n2. Set up webhook endpoint\n3. Connect to ticket system\n\nFull documentation coming soon!');
+    alert(
+        'WhatsApp Bot Setup:\n\n' +
+            '1. Configure your WhatsApp Business API\n' +
+            '2. Set up webhook endpoint\n' +
+            '3. Connect to ticket system\n\n' +
+            'Full documentation coming soon!'
+    );
 }
 
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', initApp);
+// -------------------------
+// Dashboard switching
+// -------------------------
 
-// Switch between dashboards
 function switchToDashboard(dashboard) {
     const manualSection = document.getElementById('manualTicketsSection');
     const whatsappSection = document.getElementById('whatsappTicketsSection');
     const violationsSection = document.getElementById('violationsSection');
-    const dashboardTitle = document.getElementById('dashboardTitle');
-    
-    // Hide all sections
+    const title = document.getElementById('dashboardTitle');
+
     manualSection.classList.remove('active');
     whatsappSection.classList.remove('active');
     violationsSection.classList.remove('active');
-    
-    // Hide all buttons
+
     document.getElementById('createTicketBtn').style.display = 'none';
     document.getElementById('createViolationBtn').style.display = 'none';
     document.getElementById('switchToTicketsBtn').style.display = 'none';
-    
+
     currentDashboard = dashboard;
-    
-    switch(dashboard) {
+
+    switch (dashboard) {
         case 'manual':
             manualSection.classList.add('active');
-            dashboardTitle.textContent = 'Ticket Dashboard';
+            title.textContent = 'Ticket Dashboard';
             document.getElementById('createTicketBtn').style.display = 'inline-block';
             loadTickets();
             break;
-            
+
         case 'whatsapp':
             whatsappSection.classList.add('active');
-            dashboardTitle.textContent = 'WhatsApp Tickets Dashboard';
+            title.textContent = 'WhatsApp Tickets Dashboard';
             document.getElementById('switchToTicketsBtn').style.display = 'inline-block';
             loadWhatsAppTickets();
             break;
-            
+
         case 'violations':
             violationsSection.classList.add('active');
-            dashboardTitle.textContent = 'Violations Management';
+            title.textContent = 'Violations Management';
             document.getElementById('createViolationBtn').style.display = 'inline-block';
             document.getElementById('switchToTicketsBtn').style.display = 'inline-block';
-            loadViolations();
-            populateViolationFilters();
+            // These are expected to be defined in violations.js
+            if (typeof loadViolations === 'function') loadViolations();
+            if (typeof populateViolationFilters === 'function') populateViolationFilters();
             break;
     }
 }
 
-// Populate violation filters
-function populateViolationFilters() {
-    const assocFilter = document.getElementById('violationAssociationFilter');
-    const categoryFilter = document.getElementById('violationCategoryFilter');
-    
-    if (!assocFilter || !categoryFilter) return;
-    
-    // Clear existing options except first one
-    assocFilter.innerHTML = '<option value="">All Associations</option>';
-    categoryFilter.innerHTML = '<option value="">All Categories</option>';
-    
-    // Populate associations
-    ASSOCIATIONS.forEach(assoc => {
-        const option = document.createElement('option');
-        option.value = assoc;
-        option.textContent = assoc;
-        assocFilter.appendChild(option);
-    });
-    
-    // Populate categories
-    if (typeof violationCategories !== 'undefined') {
-        violationCategories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            categoryFilter.appendChild(option);
-        });
-    }
-}
+// -------------------------
+// Dropdown population
+// -------------------------
 
-// Open create violation modal
-function openCreateViolationModal() {
-    const modal = document.getElementById('violationModal');
-    if (!modal) return;
-    
-    const form = document.getElementById('violationForm');
-    form.reset();
-    
-    // Populate associations
-    const assocSelect = document.getElementById('violationAssociation');
-    assocSelect.innerHTML = '<option value="">Select Association</option>';
-    ASSOCIATIONS.forEach(assoc => {
-        const option = document.createElement('option');
-        option.value = assoc;
-        option.textContent = assoc;
-        assocSelect.appendChild(option);
-    });
-    
-    // Populate categories
-    const categorySelect = document.getElementById('violationCategory');
-    categorySelect.innerHTML = '<option value="">Select Category</option>';
-    if (typeof violationCategories !== 'undefined') {
-        violationCategories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            categorySelect.appendChild(option);
-        });
-    }
-    
-    // Populate rules when category is selected
-    categorySelect.addEventListener('change', function() {
-        const rulesSelect = document.getElementById('violationRules');
-        rulesSelect.innerHTML = '';
-        
-        if (typeof violationRules !== 'undefined') {
-            const categoryRules = violationRules.filter(r => r.category === this.value);
-            categoryRules.forEach(rule => {
+function populateDropdowns() {
+    // Associations
+    const associationSelects = [
+        document.getElementById('ticketAssociation'),
+        document.getElementById('associationFilter')
+    ];
+
+    associationSelects.forEach(select => {
+        if (!select) return;
+        if (select.id === 'associationFilter') {
+            ASSOCIATIONS.forEach(assoc => {
                 const option = document.createElement('option');
-                option.value = rule.rule;
-                option.textContent = rule.rule;
-                rulesSelect.appendChild(option);
+                option.value = assoc;
+                option.textContent = assoc;
+                select.appendChild(option);
+            });
+        } else {
+            ASSOCIATIONS.forEach(assoc => {
+                const option = document.createElement('option');
+                option.value = assoc;
+                option.textContent = assoc;
+                select.appendChild(option);
             });
         }
     });
-    
-    modal.classList.add('active');
-}
 
-// Handle violation form submission
-async function handleViolationSubmit(e) {
-    e.preventDefault();
-    
-    const selectedRules = Array.from(document.getElementById('violationRules').selectedOptions).map(opt => opt.value);
-    
-    const violation = {
-        id: generateViolationId(),
-        homeownerName: document.getElementById('violationHomeowner').value,
-        unit: document.getElementById('violationUnit').value,
-        email: document.getElementById('violationEmail').value,
-        phone: document.getElementById('violationPhone').value || '',
-        association: document.getElementById('violationAssociation').value,
-        category: document.getElementById('violationCategory').value,
-        rules: selectedRules,
-        description: document.getElementById('violationDescription').value,
-        dateObserved: document.getElementById('violationDate').value,
-        status: document.getElementById('violationNoticeLevel').value,
-        deadline: document.getElementById('violationDeadline').value,
-        createdBy: currentUser.username || currentUser.name,
-        createdDate: new Date().toISOString(),
-        updates: []
-    };
-    
-    const violations = getViolations();
-    violations.push(violation);
-    saveViolations(violations);
-    
-    closeViolationModalFunc();
-    
-    // Generate PDF
-    await generateViolationPDF(violation);
-    
-    loadViolations();
-    
-    // Ask if they want to send email
-    if (confirm('Violation created and PDF generated! Do you want to send it via email now?')) {
-        sendViolationEmail(violation);
-    }
-}
-
-// Send violation email
-async function sendViolationEmail(violation) {
-    // This would use Microsoft Graph API to send email
-    alert(`Email functionality: Would send violation ${violation.id} to ${violation.email}\n\nIn production, this will automatically send the PDF via Outlook.`);
-}
-
-// Open rules management modal
-function openRulesModal() {
-    const modal = document.getElementById('rulesModal');
-    if (!modal) return;
-    loadRulesManager();
-    modal.classList.add('active');
-}
-
-// Load rules manager
-function loadRulesManager() {
-    const categoriesList = document.getElementById('categoriesList');
-    const rulesList = document.getElementById('rulesList');
-    
-    if (!categoriesList || !rulesList) return;
-    
-    if (typeof violationCategories === 'undefined') return;
-    
-    // Load categories
-    categoriesList.innerHTML = violationCategories.map(cat => `
-        <div class="category-item" data-category="${cat.id}">
-            ${cat.name}
-        </div>
-    `).join('');
-    
-    // Add category click listeners
-    document.querySelectorAll('.category-item').forEach(item => {
-        item.addEventListener('click', function() {
-            document.querySelectorAll('.category-item').forEach(i => i.classList.remove('active'));
-            this.classList.add('active');
-            loadCategoryRules(this.dataset.category);
+    // Team members (assignment)
+    const assignSelects = [
+        document.getElementById('ticketAssignedTo'),
+        document.getElementById('detailAssignedTo')
+    ];
+    assignSelects.forEach(select => {
+        if (!select) return;
+        TEAM_MEMBERS.forEach(member => {
+            const option = document.createElement('option');
+            option.value = member;
+            option.textContent = member;
+            select.appendChild(option);
         });
     });
-    
-    // Load first category by default
-    if (violationCategories.length > 0) {
-        document.querySelector('.category-item').click();
+}
+
+// -------------------------
+// Dropbox sync UI + Export
+// -------------------------
+
+async function handleManualSync() {
+    if (!dropboxStorage.isAuthenticated()) {
+        alert('Connect Dropbox first.');
+        return;
+    }
+
+    try {
+        const local = getTickets();
+        const merged = await dropboxStorage.syncTickets(local);
+        saveTickets(merged);
+        loadTickets();
+        updateStats();
+        showNotification('Sync completed successfully!', 'success');
+    } catch (err) {
+        console.error('Sync error:', err);
+        showNotification('Sync failed. Check connection.', 'error');
     }
 }
 
-// Load rules for a category
-function loadCategoryRules(categoryId) {
-    const rulesList = document.getElementById('rulesList');
-    if (!rulesList || typeof violationRules === 'undefined') return;
-    
-    const categoryRules = violationRules.filter(r => r.category === categoryId);
-    
-    rulesList.innerHTML = categoryRules.map(rule => `
-        <div class="rule-item" data-rule-id="${rule.id}">
-            <div class="rule-content">
-                <h4>${rule.rule}</h4>
-                <p>${rule.description}</p>
-            </div>
-            <div class="rule-actions">
-                <button class="btn-secondary btn-small" onclick="editRule('${rule.id}')">Edit</button>
-                <button class="btn-danger btn-small" onclick="deleteRule('${rule.id}')">Delete</button>
-            </div>
-        </div>
-    `).join('');
+function exportToExcel() {
+    const tickets = getTickets();
+    if (!tickets.length) {
+        showNotification('No tickets to export.', 'info');
+        return;
+    }
+
+    const headers = [
+        'ID',
+        'Title',
+        'Description',
+        'Association',
+        'Status',
+        'Priority',
+        'Assigned To',
+        'Due Date',
+        'Created By',
+        'Created Date',
+        'Updated At'
+    ];
+
+    const rows = tickets.map(t => [
+        t.id,
+        t.title,
+        t.description,
+        t.association,
+        t.status,
+        t.priority,
+        t.assignedTo || '',
+        t.dueDate || '',
+        t.createdBy || '',
+        t.createdDate || '',
+        t.updatedAt || ''
+    ]);
+
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row =>
+            row
+                .map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`)
+                .join(',')
+        )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tickets_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showNotification('Exported to CSV!', 'success');
 }
 
-// Open CINC sync modal
-function openCincSyncModal() {
-    const modal = document.getElementById('cincSyncModal');
-    if (!modal) return;
-    modal.classList.add('active');
-}
-function editRule(ruleId) {
-    const rule = violationRules.find(r => r.id === ruleId);
-    if (!rule) return;
-    
-    const newRuleName = prompt('Edit Rule Name:', rule.rule);
-    if (!newRuleName) return;
-    
-    const newDescription = prompt('Edit Description:', rule.description);
-    if (!newDescription) return;
-    
-    rule.rule = newRuleName;
-    rule.description = newDescription;
-    localStorage.setItem('violationRules', JSON.stringify(violationRules));
-    loadRulesManager();
-    alert('✅ Rule updated successfully!');
+function updateSyncStatus(message, type) {
+    const el = document.getElementById('syncStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.className = `sync-status sync-${type}`;
 }
 
-function deleteRule(ruleId) {
-    if (!confirm('⚠️ Are you sure you want to delete this rule?')) return;
-    
-    violationRules = violationRules.filter(r => r.id !== ruleId);
-    localStorage.setItem('violationRules', JSON.stringify(violationRules));
-    loadRulesManager();
-    alert('✅ Rule deleted successfully!');
-}
+function showNotification(message, type = 'info') {
+    const n = document.createElement('div');
+    n.className = `notification notification-${type}`;
+    n.textContent = message;
+    document.body.appendChild(n);
 
-// Add Category button handler
-const addCategoryBtn = document.getElementById('addCategoryBtn');
-if (addCategoryBtn) {
-    addCategoryBtn.addEventListener('click', function() {
-        const catName = prompt('Enter new category name:');
-        if (!catName) return;
-        
-        const newCat = {
-            id: catName.toLowerCase().replace(/\s+/g, '-'),
-            name: catName,
-            color: '#' + Math.floor(Math.random()*16777215).toString(16)
-        };
-        
-        violationCategories.push(newCat);
-        localStorage.setItem('violationCategories', JSON.stringify(violationCategories));
-        loadRulesManager();
-        alert('✅ Category added successfully!');
-    });
-}
+    setTimeout(() => n.classList.add('show'), 10);
 
-// Add Rule button handler
-const addRuleBtn = document.getElementById('addRuleBtn');
-if (addRuleBtn) {
-    addRuleBtn.addEventListener('click', function() {
-        const selectedCat = document.querySelector('.category-item.active');
-        if (!selectedCat) {
-            alert('⚠️ Please select a category first!');
-            return;
-        }
-        
-        const ruleName = prompt('Enter rule name:');
-        if (!ruleName) return;
-        
-        const ruleDesc = prompt('Enter rule description:');
-        if (!ruleDesc) return;
-        
-        const newRule = {
-            id: 'custom-' + Date.now(),
-            category: selectedCat.dataset.category,
-            rule: ruleName,
-            description: ruleDesc
-        };
-        
-        violationRules.push(newRule);
-        localStorage.setItem('violationRules', JSON.stringify(violationRules));
-        loadCategoryRules(selectedCat.dataset.category);
-        alert('✅ Rule added successfully!');
-    });
+    setTimeout(() => {
+        n.classList.remove('show');
+        setTimeout(() => n.remove(), 300);
+    }, 3000);
 }
