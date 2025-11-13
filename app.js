@@ -53,15 +53,6 @@ const TEAM_MEMBERS = [
     'Accounting (accounting@ljservicesgroup.com)',
     'Admin (contact@ljservicesgroup.com)'
 ];
-```
-
-6. Save the file
-
-7. Push to GitHub:
-```
-git add app.js
-git commit -m "Update associations and team members"
-git push
 
 // Initialize database in localStorage
 function initDatabase() {
