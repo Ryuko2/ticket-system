@@ -25,25 +25,25 @@ let currentUser = null;
 
 // LJ Services Group - 19 Associations
 const ASSOCIATIONS = [
-    'Las Olas Beach Club',
-    'Plaza 3000 Condominium',
-    'The Continental',
-    'Oceanview Towers',
-    'Bayfront Plaza',
-    'Riverside Condominium',
-    'Palm Court Association',
-    'Marina Bay Complex',
-    'Sunset Gardens',
-    'Harbor View Residences',
-    'Tropical Estates',
-    'Beachside Manor',
-    'Downtown Square',
-    'Coral Ridge Towers',
-    'Atlantic Heights',
-    'Golden Shores',
-    'Paradise Point',
-    'Waterfront Commons',
-    'Executive Plaza'
+    'Anthony Gardens (ANT)',
+    'Bayshore Treasure Condominium (BTC)',
+    'Cambridge (CAM)',
+    'Eastside Condominium (EAST)',
+    'Enclave Waterside Villas Condominium Association (EWVCA)',
+    'Futura Sansovino Condominium Association, Inc (FSCA)',
+    'Island Point South (IPSCA)',
+    'Michelle Condominium (MICH)',
+    'Monterrey Condominium Property Association, Inc. (MTC)',
+    'Normandy Shores Condominium (NORM)',
+    'Oxford Gates (OX)',
+    'Palms Of Sunset Condominium Association, Inc (POSS)',
+    'Patricia Condominium (PAT)',
+    'Ritz Royal (RITZ)',
+    'Sage Condominium (SAGE)',
+    'The Niche (NICHE)',
+    'Vizcaya Villas Condominium (VVC)',
+    'Tower Gates (TWG)',
+    'Wilton Terrace Condominium (WTC)'
 ].sort();
 
 // Team members (add your actual team members)
