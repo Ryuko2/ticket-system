@@ -39,7 +39,7 @@
         </nav>
 
         <div class="container">
-           <div class="dashboard-header">
+            <div class="dashboard-header">
                 <h1 id="dashboardTitle">Ticket Dashboard</h1>
                 <div class="header-actions">
                     <button id="switchToViolationsBtn" class="btn-warning">🚨 Violations</button>
@@ -109,6 +109,72 @@
                 </div>
                 <div id="whatsappTicketsList" class="tickets-list">
                     <!-- WhatsApp tickets will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- Violations Management Section -->
+            <div id="violationsSection" class="tickets-section">
+                <div class="violations-header">
+                    <h2 class="section-title">Violations Management</h2>
+                    <div class="violations-actions">
+                        <button id="manageRulesBtn" class="btn-secondary">📋 Manage Rules</button>
+                        <button id="cincSyncBtn" class="btn-secondary">🔄 Sync CINC Data</button>
+                    </div>
+                </div>
+
+                <!-- Violations Stats -->
+                <div class="violations-stats">
+                    <div class="violation-stat-card warning">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="firstNoticeCount">0</div>
+                            <div class="stat-label">1st Notices</div>
+                        </div>
+                    </div>
+                    <div class="violation-stat-card alert">
+                        <div class="stat-icon">⚠️</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="secondNoticeCount">0</div>
+                            <div class="stat-label">2nd Notices</div>
+                        </div>
+                    </div>
+                    <div class="violation-stat-card danger">
+                        <div class="stat-icon">🔴</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="thirdNoticeCount">0</div>
+                            <div class="stat-label">3rd Notices</div>
+                        </div>
+                    </div>
+                    <div class="violation-stat-card resolved">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="resolvedViolationsCount">0</div>
+                            <div class="stat-label">Resolved</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Violations Filters -->
+                <div class="filters">
+                    <select id="violationStatusFilter" class="filter-select">
+                        <option value="">All Statuses</option>
+                        <option value="1st-notice">1st Notice</option>
+                        <option value="2nd-notice">2nd Notice</option>
+                        <option value="3rd-notice">3rd Notice (Hearing)</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                    <select id="violationAssociationFilter" class="filter-select">
+                        <option value="">All Associations</option>
+                    </select>
+                    <select id="violationCategoryFilter" class="filter-select">
+                        <option value="">All Categories</option>
+                    </select>
+                    <input type="text" id="violationSearchInput" class="search-input" placeholder="Search violations...">
+                </div>
+
+                <!-- Violations List -->
+                <div id="violationsList" class="violations-list">
+                    <!-- Violations will be dynamically loaded here -->
                 </div>
             </div>
         </div>
@@ -249,7 +315,176 @@
         </div>
     </div>
 
+    <!-- Create Violation Modal -->
+    <div id="violationModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="violationModalTitle">Create New Violation</h2>
+                <button class="close-violation-modal">&times;</button>
+            </div>
+            <form id="violationForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="violationHomeowner">Homeowner Name *</label>
+                        <input type="text" id="violationHomeowner" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="violationUnit">Unit/Address *</label>
+                        <input type="text" id="violationUnit" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="violationEmail">Email Address *</label>
+                        <input type="email" id="violationEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="violationPhone">Phone Number</label>
+                        <input type="tel" id="violationPhone">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="violationAssociation">Association *</label>
+                    <select id="violationAssociation" required>
+                        <option value="">Select Association</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="violationCategory">Violation Category *</label>
+                    <select id="violationCategory" required>
+                        <option value="">Select Category</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="violationRules">Select Violated Rules *</label>
+                    <select id="violationRules" multiple size="5" required>
+                        <option value="">Loading rules...</option>
+                    </select>
+                    <small>Hold Ctrl (Cmd on Mac) to select multiple rules</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="violationDescription">Detailed Description *</label>
+                    <textarea id="violationDescription" rows="5" required placeholder="Describe the violation in detail..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="violationDate">Date Observed *</label>
+                        <input type="date" id="violationDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="violationNoticeLevel">Notice Level *</label>
+                        <select id="violationNoticeLevel" required>
+                            <option value="1st-notice">1st Notice (Warning)</option>
+                            <option value="2nd-notice">2nd Notice (Second Warning)</option>
+                            <option value="3rd-notice">3rd Notice (Hearing Letter)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="violationDeadline">Compliance Deadline *</label>
+                    <input type="date" id="violationDeadline" required>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary cancel-violation-btn">Cancel</button>
+                    <button type="submit" class="btn-danger">Create Violation & Generate PDF</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rules Management Modal -->
+    <div id="rulesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Manage Violation Rules</h2>
+                <button class="close-rules-modal">&times;</button>
+            </div>
+            <div class="rules-content">
+                <div class="rules-header">
+                    <button id="addRuleBtn" class="btn-primary">+ Add New Rule</button>
+                </div>
+
+                <div class="rules-categories">
+                    <div class="category-section">
+                        <h3>Categories</h3>
+                        <div id="categoriesList" class="categories-list">
+                            <!-- Categories will load here -->
+                        </div>
+                        <button id="addCategoryBtn" class="btn-secondary btn-small">+ Add Category</button>
+                    </div>
+
+                    <div class="rules-section">
+                        <h3>Rules</h3>
+                        <div id="rulesList" class="rules-list-container">
+                            <!-- Rules will load here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CINC Sync Modal -->
+    <div id="cincSyncModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>CINC Data Synchronization</h2>
+                <button class="close-cinc-modal">&times;</button>
+            </div>
+            <div class="cinc-sync-content">
+                <div class="sync-info">
+                    <p>📊 <strong>CINC Integration Status:</strong> <span id="cincStatus" class="status-badge">Not Connected</span></p>
+                    <p>Last sync: <span id="lastSyncTime">Never</span></p>
+                </div>
+
+                <div class="sync-options">
+                    <h3>Sync Options</h3>
+                    
+                    <div class="form-group">
+                        <label for="cincApiUrl">CINC API URL</label>
+                        <input type="url" id="cincApiUrl" placeholder="https://api.cincsystems.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cincApiKey">API Key</label>
+                        <input type="password" id="cincApiKey" placeholder="Enter your CINC API key">
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="autoSync">
+                            Auto-sync homeowner data daily
+                        </label>
+                    </div>
+
+                    <div class="sync-actions">
+                        <button id="testCincConnection" class="btn-secondary">Test Connection</button>
+                        <button id="syncNowBtn" class="btn-primary">Sync Now</button>
+                        <button id="saveCincSettings" class="btn-success">Save Settings</button>
+                    </div>
+                </div>
+
+                <div class="sync-log">
+                    <h3>Sync Log</h3>
+                    <div id="syncLogContent" class="log-content">
+                        No sync history yet.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="violations.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
