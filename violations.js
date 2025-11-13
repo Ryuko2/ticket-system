@@ -179,16 +179,19 @@ function updateViolationStats() {
     const firstNotice = violations.filter(v => v.status === '1st-notice').length;
     const secondNotice = violations.filter(v => v.status === '2nd-notice').length;
     const thirdNotice = violations.filter(v => v.status === '3rd-notice').length;
+    const fees = violations.filter(v => v.status === 'fees').length;
     const resolved = violations.filter(v => v.status === 'resolved').length;
     
     const firstEl = document.getElementById('firstNoticeCount');
     const secondEl = document.getElementById('secondNoticeCount');
     const thirdEl = document.getElementById('thirdNoticeCount');
+    const feesEl = document.getElementById('feesCount');
     const resolvedEl = document.getElementById('resolvedViolationsCount');
     
     if (firstEl) firstEl.textContent = firstNotice;
     if (secondEl) secondEl.textContent = secondNotice;
     if (thirdEl) thirdEl.textContent = thirdNotice;
+    if (feesEl) feesEl.textContent = fees;
     if (resolvedEl) resolvedEl.textContent = resolved;
 }
 
@@ -239,16 +242,19 @@ async function generateViolationPDF(violation) {
     doc.setFont(undefined, 'bold');
     let noticeTitle = '';
     switch(violation.status) {
-        case '1st-notice':
-            noticeTitle = 'FIRST NOTICE OF VIOLATION';
-            break;
-        case '2nd-notice':
-            noticeTitle = 'SECOND NOTICE OF VIOLATION';
-            break;
-        case '3rd-notice':
-            noticeTitle = 'FINAL NOTICE - HEARING REQUIRED';
-            break;
-    }
+    case '1st-notice':
+        noticeTitle = 'FIRST NOTICE OF VIOLATION';
+        break;
+    case '2nd-notice':
+        noticeTitle = 'SECOND NOTICE OF VIOLATION';
+        break;
+    case '3rd-notice':
+        noticeTitle = 'FINAL NOTICE - HEARING REQUIRED';
+        break;
+    case 'fees':
+        noticeTitle = 'NOTICE OF FEES - NON-COMPLIANCE';
+        break;
+}
     doc.text(noticeTitle, margin, yPos);
     yPos += 10;
     
