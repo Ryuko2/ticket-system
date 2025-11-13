@@ -1,9 +1,10 @@
 // Microsoft Authentication Library (MSAL) Configuration
+
 const msalConfig = {
     auth: {
-        clientId: '9490235a-076b-464a-a4b7-c2a1b1156fe1', // Replace with your Azure AD App Client ID
+        clientId: '9490235a-076b-464a-a4b7-c2a1b1156fe1',
         authority: 'https://login.microsoftonline.com/common',
-        redirectUri: 'http://localhost:8000/index.html'
+        redirectUri: window.location.origin + window.location.pathname
     },
     cache: {
         cacheLocation: 'localStorage',
