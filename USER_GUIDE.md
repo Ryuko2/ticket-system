@@ -212,25 +212,25 @@
 ## Association Quick Reference
 
 Your 19 managed associations:
-1. Atlantic Heights
-2. Bayfront Plaza
-3. Beachside Manor
-4. Coral Ridge Towers
-5. Downtown Square
-6. Executive Plaza
-7. Golden Shores
-8. Harbor View Residences
-9. Las Olas Beach Club
-10. Marina Bay Complex
-11. Oceanview Towers
-12. Palm Court Association
-13. Paradise Point
-14. Plaza 3000 Condominium
-15. Riverside Condominium
-16. Sunset Gardens
-17. The Continental
-18. Tropical Estates
-19. Waterfront Commons
+    'Anthony Gardens (ANT)',
+    'Bayshore Treasure Condominium (BTC)',
+    'Cambridge (CAM)',
+    'Eastside Condominium (EAST)',
+    'Enclave Waterside Villas Condominium Association (EWVCA)',
+    'Futura Sansovino Condominium Association, Inc (FSCA)',
+    'Island Point South (IPSCA)',
+    'Michelle Condominium (MICH)',
+    'Monterrey Condominium Property Association, Inc. (MTC)',
+    'Normandy Shores Condominium (NORM)',
+    'Oxford Gates (OX)',
+    'Palms Of Sunset Condominium Association, Inc (POSS)',
+    'Patricia Condominium (PAT)',
+    'Ritz Royal (RITZ)',
+    'Sage Condominium (SAGE)',
+    'The Niche (NICHE)',
+    'Vizcaya Villas Condominium (VVC)',
+    'Tower Gates (TWG)',
+    'Wilton Terrace Condominium (WTC)'
 
 ---
 

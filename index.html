@@ -41,7 +41,12 @@
         <div class="container">
             <div class="dashboard-header">
                 <h1>Ticket Dashboard</h1>
-                <button id="createTicketBtn" class="btn-primary">+ Create New Ticket</button>
+                <div class="header-actions">
+                    <button id="switchDashboardBtn" class="btn-secondary">
+                        <span id="dashboardSwitchText">📱 WhatsApp Tickets</span>
+                    </button>
+                    <button id="createTicketBtn" class="btn-primary">+ Create New Ticket</button>
+                </div>
             </div>
 
             <!-- Stats Overview -->
@@ -87,8 +92,23 @@
             </div>
 
             <!-- Tickets List -->
-            <div id="ticketsList" class="tickets-list">
-                <!-- Tickets will be dynamically loaded here -->
+            <div id="manualTicketsSection" class="tickets-section active">
+                <h2 class="section-title">Manual Tickets</h2>
+                <div id="ticketsList" class="tickets-list">
+                    <!-- Tickets will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- WhatsApp Tickets Section -->
+            <div id="whatsappTicketsSection" class="tickets-section">
+                <h2 class="section-title">WhatsApp Bot Tickets</h2>
+                <div class="whatsapp-info-banner">
+                    <p>📱 <strong>WhatsApp Bot Status:</strong> <span id="botStatus" class="status-badge">Not Configured</span></p>
+                    <button id="setupWhatsAppBtn" class="btn-primary">Setup WhatsApp Bot</button>
+                </div>
+                <div id="whatsappTicketsList" class="tickets-list">
+                    <!-- WhatsApp tickets will be dynamically loaded here -->
+                </div>
             </div>
         </div>
     </div>
