@@ -6,6 +6,14 @@
     <title>LJ Services Group - Ticket Management System</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="quick-fixes.css">
+
+    <!-- ✅ Dropbox Chooser/Saver API (replace YOUR_DROPBOX_APP_KEY) -->
+    <script
+        type="text/javascript"
+        src="https://www.dropbox.com/static/api/2/dropins.js"
+        id="dropboxjs"
+        data-app-key="gazrj3d6rgyf6eb">
+    </script>
 </head>
 <body>
     <!-- Login Screen -->
@@ -15,15 +23,36 @@
                 <h1>LJ Services Group</h1>
                 <p>Property Management Ticket System</p>
             </div>
-            <button id="loginButton" class="microsoft-login">
-                <svg width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="10" height="10" fill="#f25022"/>
-                    <rect x="11" width="10" height="10" fill="#00a4ef"/>
-                    <rect y="11" width="10" height="10" fill="#7fba00"/>
-                    <rect x="11" y="11" width="10" height="10" fill="#ffb900"/>
-                </svg>
-                Sign in with Microsoft
-            </button>
+
+            <!-- ✅ Login buttons block (Microsoft + Dropbox + Demo) -->
+            <div class="login-buttons">
+                <!-- Existing Microsoft login button -->
+                <button id="loginButton" class="microsoft-login">
+                    <svg width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="10" height="10" fill="#f25022"/>
+                        <rect x="11" width="10" height="10" fill="#00a4ef"/>
+                        <rect y="11" width="10" height="10" fill="#7fba00"/>
+                        <rect x="11" y="11" width="10" height="10" fill="#ffb900"/>
+                    </svg>
+                    Sign in with Microsoft
+                </button>
+
+                <!-- ✅ New: Connect Dropbox Storage button -->
+                <button id="dropboxLoginBtn" class="dropbox-login">
+                    📁 Connect Dropbox Storage
+                </button>
+
+                <div class="divider">or</div>
+
+                <!-- ✅ New: Demo mode button -->
+                <button id="demoLoginBtn" class="demo-login">
+                    🚀 Try Demo Mode
+                </button>
+            </div>
+
+            <p class="login-note">
+                Dropbox integration securely saves all tickets (5TB storage, auto-sync, shared between Linda & Kevin).
+            </p>
         </div>
     </div>
 
@@ -49,6 +78,22 @@
                     <button id="createTicketBtn" class="btn-primary">+ Create New Ticket</button>
                     <button id="createViolationBtn" class="btn-danger" style="display:none;">+ New Violation</button>
                 </div>
+            </div>
+
+            <!-- ✅ New: Dropbox actions toolbar -->
+            <div class="dropbox-actions">
+                <button id="syncDropboxBtn" class="btn-secondary">
+                    🔄 Sync with Dropbox
+                </button>
+                <span id="syncStatus" class="sync-status">✓ Synced</span>
+
+                <button id="exportBtn" class="btn-secondary">
+                    📊 Export to Excel
+                </button>
+
+                <button id="viewDropboxBtn" class="btn-secondary">
+                    📁 View in Dropbox
+                </button>
             </div>
 
             <!-- Stats Overview -->
@@ -483,6 +528,7 @@
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="violations.js"></script>
