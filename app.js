@@ -237,6 +237,7 @@ document.addEventListener('DOMContentLoaded', initApp);
 
 async function initApp() {
     // Handle Dropbox redirect (access_token in hash)
+    let justConnectedDropbox = false;
     if (window.location.hash.includes('access_token')) {
         const params = new URLSearchParams(window.location.hash.substring(1));
         const token = params.get('access_token');
@@ -244,6 +245,7 @@ async function initApp() {
             localStorage.setItem('dropbox_token', token);
             dropboxStorage.accessToken = token;
             DROPBOX_CONFIG.accessToken = token;
+            justConnectedDropbox = true;
             window.history.replaceState({}, document.title, window.location.pathname);
             showNotification('Dropbox connected successfully!', 'success');
         }
@@ -255,10 +257,29 @@ async function initApp() {
         currentUser = accounts[0];
     }
 
+    // Check if we have a saved user session (from demo or previous login)
+    const savedUser = localStorage.getItem('currentUser');
+    if (!currentUser && savedUser) {
+        try {
+            currentUser = JSON.parse(savedUser);
+        } catch (e) {
+            localStorage.removeItem('currentUser');
+        }
+    }
+
     setupEventListeners();
     populateDropdowns();
 
-    if (currentUser) {
+    // Show dashboard if: user is logged in OR just connected Dropbox
+    if (currentUser || justConnectedDropbox) {
+        // If just connected Dropbox but no user, create demo user
+        if (justConnectedDropbox && !currentUser) {
+            currentUser = {
+                username: 'dropbox-user@ljservicesgroup.com',
+                name: 'Dropbox User'
+            };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        }
         showDashboard();
     } else {
         document.getElementById('loginScreen').classList.add('active');
@@ -348,6 +369,7 @@ async function handleLogin() {
     try {
         const response = await msalInstance.loginPopup(loginRequest);
         currentUser = response.account;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
         showDashboard();
     } catch (err) {
         console.error('Login error:', err);
@@ -356,12 +378,14 @@ async function handleLogin() {
 }
 
 function handleLogout() {
-    msalInstance.logoutPopup();
+    if (msalInstance.getAllAccounts().length > 0) {
+        msalInstance.logoutPopup();
+    }
     currentUser = null;
+    localStorage.removeItem('currentUser');
     document.getElementById('dashboardScreen').classList.remove('active');
     document.getElementById('loginScreen').classList.add('active');
 }
-
 function handleDropboxLogin() {
     dropboxStorage.authenticate();
 }
@@ -372,6 +396,7 @@ function handleDemoLogin() {
         username: 'demo@ljservicesgroup.com',
         name: 'Demo User'
     };
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
     showDashboard();
 }
 
