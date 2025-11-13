@@ -48,12 +48,20 @@ const ASSOCIATIONS = [
 
 // Team members (add your actual team members)
 const TEAM_MEMBERS = [
-    'Linda Johnson',
-    'Kevin (You)',
-    'Team Member 1',
-    'Team Member 2',
-    'Team Member 3'
+    'Linda Johnson (ljohnson@ljservicesgroup.com)',
+    'Kevin Rodriguez (kevinr@ljservicesgroup.com)',
+    'Accounting (accounting@ljservicesgroup.com)',
+    'Admin (contact@ljservicesgroup.com)'
 ];
+```
+
+6. Save the file
+
+7. Push to GitHub:
+```
+git add app.js
+git commit -m "Update associations and team members"
+git push
 
 // Initialize database in localStorage
 function initDatabase() {
