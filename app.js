@@ -799,14 +799,14 @@ function loadCategoryRules(categoryId) {
     const categoryRules = violationRules.filter(r => r.category === categoryId);
     
     rulesList.innerHTML = categoryRules.map(rule => `
-        <div class="rule-item">
+        <div class="rule-item" data-rule-id="${rule.id}">
             <div class="rule-content">
                 <h4>${rule.rule}</h4>
                 <p>${rule.description}</p>
             </div>
             <div class="rule-actions">
-                <button class="btn-secondary btn-small">Edit</button>
-                <button class="btn-danger btn-small">Delete</button>
+                <button class="btn-secondary btn-small" onclick="editRule('${rule.id}')">Edit</button>
+                <button class="btn-danger btn-small" onclick="deleteRule('${rule.id}')">Delete</button>
             </div>
         </div>
     `).join('');
@@ -817,4 +817,79 @@ function openCincSyncModal() {
     const modal = document.getElementById('cincSyncModal');
     if (!modal) return;
     modal.classList.add('active');
+}
+function editRule(ruleId) {
+    const rule = violationRules.find(r => r.id === ruleId);
+    if (!rule) return;
+    
+    const newRuleName = prompt('Edit Rule Name:', rule.rule);
+    if (!newRuleName) return;
+    
+    const newDescription = prompt('Edit Description:', rule.description);
+    if (!newDescription) return;
+    
+    rule.rule = newRuleName;
+    rule.description = newDescription;
+    localStorage.setItem('violationRules', JSON.stringify(violationRules));
+    loadRulesManager();
+    alert('✅ Rule updated successfully!');
+}
+
+function deleteRule(ruleId) {
+    if (!confirm('⚠️ Are you sure you want to delete this rule?')) return;
+    
+    violationRules = violationRules.filter(r => r.id !== ruleId);
+    localStorage.setItem('violationRules', JSON.stringify(violationRules));
+    loadRulesManager();
+    alert('✅ Rule deleted successfully!');
+}
+
+// Add Category button handler
+const addCategoryBtn = document.getElementById('addCategoryBtn');
+if (addCategoryBtn) {
+    addCategoryBtn.addEventListener('click', function() {
+        const catName = prompt('Enter new category name:');
+        if (!catName) return;
+        
+        const newCat = {
+            id: catName.toLowerCase().replace(/\s+/g, '-'),
+            name: catName,
+            color: '#' + Math.floor(Math.random()*16777215).toString(16)
+        };
+        
+        violationCategories.push(newCat);
+        localStorage.setItem('violationCategories', JSON.stringify(violationCategories));
+        loadRulesManager();
+        alert('✅ Category added successfully!');
+    });
+}
+
+// Add Rule button handler
+const addRuleBtn = document.getElementById('addRuleBtn');
+if (addRuleBtn) {
+    addRuleBtn.addEventListener('click', function() {
+        const selectedCat = document.querySelector('.category-item.active');
+        if (!selectedCat) {
+            alert('⚠️ Please select a category first!');
+            return;
+        }
+        
+        const ruleName = prompt('Enter rule name:');
+        if (!ruleName) return;
+        
+        const ruleDesc = prompt('Enter rule description:');
+        if (!ruleDesc) return;
+        
+        const newRule = {
+            id: 'custom-' + Date.now(),
+            category: selectedCat.dataset.category,
+            rule: ruleName,
+            description: ruleDesc
+        };
+        
+        violationRules.push(newRule);
+        localStorage.setItem('violationRules', JSON.stringify(violationRules));
+        loadCategoryRules(selectedCat.dataset.category);
+        alert('✅ Rule added successfully!');
+    });
 }
