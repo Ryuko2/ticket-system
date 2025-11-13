@@ -95,6 +95,8 @@ function loadViolations() {
     const violations = getViolations();
     const violationsList = document.getElementById('violationsList');
     
+    if (!violationsList) return;
+    
     if (violations.length === 0) {
         violationsList.innerHTML = `
             <div class="empty-state">
@@ -179,15 +181,19 @@ function updateViolationStats() {
     const thirdNotice = violations.filter(v => v.status === '3rd-notice').length;
     const resolved = violations.filter(v => v.status === 'resolved').length;
     
-    document.getElementById('firstNoticeCount').textContent = firstNotice;
-    document.getElementById('secondNoticeCount').textContent = secondNotice;
-    document.getElementById('thirdNoticeCount').textContent = thirdNotice;
-    document.getElementById('resolvedViolationsCount').textContent = resolved;
+    const firstEl = document.getElementById('firstNoticeCount');
+    const secondEl = document.getElementById('secondNoticeCount');
+    const thirdEl = document.getElementById('thirdNoticeCount');
+    const resolvedEl = document.getElementById('resolvedViolationsCount');
+    
+    if (firstEl) firstEl.textContent = firstNotice;
+    if (secondEl) secondEl.textContent = secondNotice;
+    if (thirdEl) thirdEl.textContent = thirdNotice;
+    if (resolvedEl) resolvedEl.textContent = resolved;
 }
 
-// Open violation detail (similar to ticket detail)
+// Open violation detail
 function openViolationDetail(violationId) {
-    // Implementation similar to openTicketDetail
     alert(`Violation detail view coming soon! Violation ID: ${violationId}`);
 }
 
