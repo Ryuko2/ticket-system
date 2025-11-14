@@ -1,13 +1,13 @@
 // ============================================
 // LJ Services Group - Ticketing System
 // Microsoft Login + Dropbox Sync + WhatsApp + Violations
+// CLEAN VERSION - NO DUPLICATES
 // ============================================
 
 // -------------------------
 // Basic Configuration
 // -------------------------
 
-// All 19 associations (from your original app)
 const ASSOCIATIONS = [
     'Anthony Gardens (ANT)',
     'Bayshore Treasure Condominium (BTC)',
@@ -30,7 +30,6 @@ const ASSOCIATIONS = [
     'Yacht Club at Brickell (YCB)'
 ].sort();
 
-// Team members
 const TEAM_MEMBERS = [
     'Linda Johnson',
     'Kevin Rodriguez',
@@ -38,11 +37,12 @@ const TEAM_MEMBERS = [
     'Maintenance Team'
 ].sort();
 
-// Dashboard state
-let currentDashboard = 'manual'; // 'manual', 'whatsapp', 'violations'
+let currentDashboard = 'manual';
+let currentUser = null;
+let isAuthInProgress = false;
 
 // -------------------------
-// Microsoft Authentication (your original app registration)
+// Microsoft Authentication
 // -------------------------
 
 const msalConfig = {
@@ -61,15 +61,13 @@ const loginRequest = {
     scopes: ["User.Read", "Mail.Send"]
 };
 
-const msalInstance = new msal.PublicClientApplication(msalConfig);
-let currentUser = null;
-let isAuthInProgress = false;
+let msalInstance = null;
 
 // -------------------------
 // Dropbox Configuration
 // -------------------------
 
-const DROPBOX_CLIENT_ID = 'gazrj3d6rgyf6eb'; // 🔁 REPLACE THIS
+const DROPBOX_CLIENT_ID = 'gazrj3d6rgyf6eb';
 const DROPBOX_CONFIG = {
     accessToken: null,
     folderPath: '/LJ_Services_Ticketing',
@@ -89,7 +87,6 @@ class DropboxStorage {
         return !!this.accessToken;
     }
 
-    // Open OAuth in same page (implicit grant)
     authenticate() {
         const redirectUri = window.location.origin + window.location.pathname;
         const authUrl = `https://www.dropbox.com/oauth2/authorize?response_type=token&client_id=${encodeURIComponent(
@@ -142,7 +139,6 @@ class DropboxStorage {
         });
 
         if (response.status === 409) {
-            // File not found yet
             return { tickets: [] };
         }
 
@@ -158,7 +154,6 @@ class DropboxStorage {
         return data;
     }
 
-    // Merge local + remote (remote wins if newer updatedAt)
     mergeTickets(localTickets, remoteTickets) {
         const map = new Map();
 
@@ -220,7 +215,6 @@ function saveTickets(tickets) {
     localStorage.setItem('tickets', JSON.stringify(tickets));
 }
 
-// Generate incremental ID like TKT-00001
 function generateTicketId() {
     const tickets = getTickets();
     const lastNumeric = tickets.length
@@ -240,11 +234,23 @@ async function initApp() {
     // Clear any stuck auth states
     isAuthInProgress = false;
     
-    // Clear any pending MSAL interactions
+    // Initialize MSAL
     try {
-        await msalInstance.handleRedirectPromise();
-    } catch (e) {
-        console.log('Cleared pending MSAL interaction:', e);
+        if (typeof msal !== 'undefined') {
+            msalInstance = new msal.PublicClientApplication(msalConfig);
+            await msalInstance.initialize();
+            
+            // Clear any pending MSAL interactions
+            try {
+                await msalInstance.handleRedirectPromise();
+            } catch (e) {
+                console.log('Cleared pending MSAL interaction:', e);
+            }
+        } else {
+            console.warn('MSAL library not loaded. Microsoft login will not work.');
+        }
+    } catch (error) {
+        console.error('MSAL initialization error:', error);
     }
     
     // Handle Dropbox redirect (access_token in hash)
@@ -263,9 +269,11 @@ async function initApp() {
     }
 
     // Try MSAL silent login
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-        currentUser = accounts[0];
+    if (msalInstance) {
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            currentUser = accounts[0];
+        }
     }
 
     // Check if we have a saved user session
@@ -309,7 +317,6 @@ async function initApp() {
 // -------------------------
 
 function setupEventListeners() {
-    // Login / Logout
     const loginButton = document.getElementById('loginButton');
     const dropboxLoginBtn = document.getElementById('dropboxLoginBtn');
     const demoLoginBtn = document.getElementById('demoLoginBtn');
@@ -320,13 +327,11 @@ function setupEventListeners() {
     if (demoLoginBtn) demoLoginBtn.addEventListener('click', handleDemoLogin);
     if (logoutButton) logoutButton.addEventListener('click', handleLogout);
 
-    // Ticket management
     document.getElementById('createTicketBtn')?.addEventListener('click', openCreateTicketModal);
     document.querySelector('.close-modal')?.addEventListener('click', closeTicketModal);
     document.querySelector('.cancel-btn')?.addEventListener('click', closeTicketModal);
     document.getElementById('ticketForm')?.addEventListener('submit', handleTicketSubmit);
 
-    // Ticket detail
     document.querySelector('.close-detail-modal')?.addEventListener('click', closeTicketDetailModal);
     document.getElementById('addUpdateBtn')?.addEventListener('click', addTicketUpdate);
     document.getElementById('detailStatus')?.addEventListener('change', onDetailStatusChange);
@@ -334,19 +339,16 @@ function setupEventListeners() {
     document.getElementById('sendEmailBtn')?.addEventListener('click', sendEmailUpdate);
     document.getElementById('deleteTicketBtn')?.addEventListener('click', deleteTicket);
 
-    // Filters
     document.getElementById('statusFilter')?.addEventListener('change', applyFilters);
     document.getElementById('associationFilter')?.addEventListener('change', applyFilters);
     document.getElementById('priorityFilter')?.addEventListener('change', applyFilters);
     document.getElementById('searchInput')?.addEventListener('input', applyFilters);
 
-    // Dashboard switching
     document.getElementById('switchToViolationsBtn')?.addEventListener('click', () => switchToDashboard('violations'));
     document.getElementById('switchToWhatsAppBtn')?.addEventListener('click', () => switchToDashboard('whatsapp'));
     document.getElementById('switchToTicketsBtn')?.addEventListener('click', () => switchToDashboard('manual'));
     document.getElementById('setupWhatsAppBtn')?.addEventListener('click', openWhatsAppSetup);
 
-    // Violations (wired to violations.js if present)
     document.getElementById('createViolationBtn')?.addEventListener('click', () => {
         if (typeof openCreateViolationModal === 'function') openCreateViolationModal();
     });
@@ -357,14 +359,12 @@ function setupEventListeners() {
         if (typeof openCincSyncModal === 'function') openCincSyncModal();
     });
 
-    // Dropbox buttons
     document.getElementById('syncDropboxBtn')?.addEventListener('click', handleManualSync);
     document.getElementById('viewDropboxBtn')?.addEventListener('click', () => {
         window.open(dropboxStorage.getDropboxFolderUrl(), '_blank');
     });
     document.getElementById('exportBtn')?.addEventListener('click', exportToExcel);
 
-    // Close modals when clicking outside
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
             e.target.classList.remove('active');
@@ -377,7 +377,11 @@ function setupEventListeners() {
 // -------------------------
 
 async function handleLogin() {
-    // Prevent multiple clicks
+    if (!msalInstance) {
+        alert('Microsoft login is not available. Please use Demo Mode or Dropbox login.');
+        return;
+    }
+
     if (isAuthInProgress) {
         console.log('Login already in progress...');
         return;
@@ -386,7 +390,6 @@ async function handleLogin() {
     try {
         isAuthInProgress = true;
         
-        // Clear any existing interactions
         await msalInstance.handleRedirectPromise();
         
         const response = await msalInstance.loginPopup(loginRequest);
@@ -396,13 +399,12 @@ async function handleLogin() {
     } catch (err) {
         console.error('Login error:', err);
         
-        // Handle specific error types
         if (err.errorCode === 'interaction_in_progress') {
             alert('A login window is already open. Please complete or close it first.');
         } else if (err.errorCode === 'user_cancelled') {
             console.log('User cancelled login');
         } else {
-            alert('Login failed. Please try again.');
+            alert('Login failed. Please try Demo Mode or Dropbox login instead.');
         }
     } finally {
         isAuthInProgress = false;
@@ -410,7 +412,7 @@ async function handleLogin() {
 }
 
 function handleLogout() {
-    if (msalInstance.getAllAccounts().length > 0) {
+    if (msalInstance && msalInstance.getAllAccounts().length > 0) {
         msalInstance.logoutPopup();
     }
     currentUser = null;
@@ -418,6 +420,7 @@ function handleLogout() {
     document.getElementById('dashboardScreen').classList.remove('active');
     document.getElementById('loginScreen').classList.add('active');
 }
+
 function handleDropboxLogin() {
     if (isAuthInProgress) {
         console.log('Authentication already in progress...');
@@ -459,7 +462,6 @@ function showDashboard() {
         emailLabel.textContent = currentUser.username || currentUser.name || 'User';
     }
 
-    // Sync button visibility
     const syncStatus = document.getElementById('syncStatus');
     if (dropboxStorage.isAuthenticated()) {
         updateSyncStatus('Dropbox connected', 'success');
@@ -667,7 +669,6 @@ function addTicketUpdate() {
     document.getElementById('newUpdate').value = '';
 }
 
-// status change from detail dropdown
 function onDetailStatusChange(e) {
     const newStatus = e.target.value;
     const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
@@ -691,7 +692,6 @@ function onDetailStatusChange(e) {
     updateStats();
 }
 
-// assignee change from detail dropdown
 function onDetailAssignChange(e) {
     const newAssignee = e.target.value;
     const ticketId = document.getElementById('ticketDetailModal').dataset.ticketId;
@@ -853,7 +853,6 @@ function switchToDashboard(dashboard) {
             title.textContent = 'Violations Management';
             document.getElementById('createViolationBtn').style.display = 'inline-block';
             document.getElementById('switchToTicketsBtn').style.display = 'inline-block';
-            // These are expected to be defined in violations.js
             if (typeof loadViolations === 'function') loadViolations();
             if (typeof populateViolationFilters === 'function') populateViolationFilters();
             break;
@@ -865,7 +864,6 @@ function switchToDashboard(dashboard) {
 // -------------------------
 
 function populateDropdowns() {
-    // Associations
     const associationSelects = [
         document.getElementById('ticketAssociation'),
         document.getElementById('associationFilter')
@@ -890,7 +888,6 @@ function populateDropdowns() {
         }
     });
 
-    // Team members (assignment)
     const assignSelects = [
         document.getElementById('ticketAssignedTo'),
         document.getElementById('detailAssignedTo')
