@@ -1,0 +1,47 @@
+/* ============================================
+   FIX WHITE GAP AT TOP OF PAGE
+   Add this to your styles.css or create new file
+   ============================================ */
+
+/* Remove any top margin/padding from body and main containers */
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Fix login screen positioning */
+#loginScreen {
+    margin-top: 0 !important;
+    padding-top: 60px;
+}
+
+/* Fix dashboard screen positioning */
+#dashboardScreen {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Make sure navbar is at the very top */
+.navbar {
+    position: sticky;
+    top: 0;
+    margin: 0 !important;
+    z-index: 1000;
+}
+
+/* Fix main content area */
+.main-content {
+    margin-top: 0 !important;
+    padding-top: 20px;
+}
+
+/* Fix dashboard header */
+.dashboard-header {
+    margin-top: 0 !important;
+    padding-top: 20px;
+}
+
+/* Ensure no extra space from stats cards */
+.stats-grid {
+    margin-top: 0 !important;
+}
