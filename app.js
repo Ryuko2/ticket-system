@@ -63,6 +63,7 @@ const loginRequest = {
 
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 let currentUser = null;
+let isAuthInProgress = false;
 
 // -------------------------
 // Dropbox Configuration
@@ -236,6 +237,16 @@ function generateTicketId() {
 document.addEventListener('DOMContentLoaded', initApp);
 
 async function initApp() {
+    // Clear any stuck auth states
+    isAuthInProgress = false;
+    
+    // Clear any pending MSAL interactions
+    try {
+        await msalInstance.handleRedirectPromise();
+    } catch (e) {
+        console.log('Cleared pending MSAL interaction:', e);
+    }
+    
     // Handle Dropbox redirect (access_token in hash)
     let justConnectedDropbox = false;
     if (window.location.hash.includes('access_token')) {
@@ -257,7 +268,7 @@ async function initApp() {
         currentUser = accounts[0];
     }
 
-    // Check if we have a saved user session (from demo or previous login)
+    // Check if we have a saved user session
     const savedUser = localStorage.getItem('currentUser');
     if (!currentUser && savedUser) {
         try {
@@ -270,9 +281,9 @@ async function initApp() {
     setupEventListeners();
     populateDropdowns();
 
-    // Show dashboard if: user is logged in OR just connected Dropbox
+    // Show dashboard if user logged in OR just connected Dropbox
     if (currentUser || justConnectedDropbox) {
-        // If just connected Dropbox but no user, create demo user
+        // If just connected Dropbox but no user, create auto-login
         if (justConnectedDropbox && !currentUser) {
             currentUser = {
                 username: 'dropbox-user@ljservicesgroup.com',
@@ -366,14 +377,35 @@ function setupEventListeners() {
 // -------------------------
 
 async function handleLogin() {
+    // Prevent multiple clicks
+    if (isAuthInProgress) {
+        console.log('Login already in progress...');
+        return;
+    }
+
     try {
+        isAuthInProgress = true;
+        
+        // Clear any existing interactions
+        await msalInstance.handleRedirectPromise();
+        
         const response = await msalInstance.loginPopup(loginRequest);
         currentUser = response.account;
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         showDashboard();
     } catch (err) {
         console.error('Login error:', err);
-        alert('Login failed. Please try again.');
+        
+        // Handle specific error types
+        if (err.errorCode === 'interaction_in_progress') {
+            alert('A login window is already open. Please complete or close it first.');
+        } else if (err.errorCode === 'user_cancelled') {
+            console.log('User cancelled login');
+        } else {
+            alert('Login failed. Please try again.');
+        }
+    } finally {
+        isAuthInProgress = false;
     }
 }
 
@@ -387,17 +419,31 @@ function handleLogout() {
     document.getElementById('loginScreen').classList.add('active');
 }
 function handleDropboxLogin() {
+    if (isAuthInProgress) {
+        console.log('Authentication already in progress...');
+        return;
+    }
+    
+    isAuthInProgress = true;
     dropboxStorage.authenticate();
 }
 
 function handleDemoLogin() {
-    // fake user without MSAL (for testing UI)
+    if (isAuthInProgress) {
+        console.log('Authentication already in progress...');
+        return;
+    }
+    
+    isAuthInProgress = true;
+    
     currentUser = {
         username: 'demo@ljservicesgroup.com',
         name: 'Demo User'
     };
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     showDashboard();
+    
+    isAuthInProgress = false;
 }
 
 // -------------------------
