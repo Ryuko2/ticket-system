@@ -1,33 +1,32 @@
 // ============================================
 // LJ Services Group - Ticketing System
-// Microsoft Login + Dropbox Sync + WhatsApp + Violations
-// CLEAN VERSION - NO DUPLICATES
+// CORRECT 19 ASSOCIATIONS + ANIMATED MENU FIX
 // ============================================
 
 // -------------------------
-// Basic Configuration
+// CORRECT Associations List
 // -------------------------
 
 const ASSOCIATIONS = [
     'Anthony Gardens (ANT)',
     'Bayshore Treasure Condominium (BTC)',
-    'Brickell Courts (BRC)',
     'Cambridge (CAM)',
-    'Century Bay (CEB)',
-    'Doubletree (DBT)',
-    'Everglades (EVE)',
-    'Imperial at Brickell (IMP)',
-    'Key Colony (KEY)',
-    'Mark 2000 (MRK)',
-    'Mid Town (MID)',
-    'Nautica (NAU)',
-    'One Tequesta Point (OTP)',
-    'Plaza on Brickell (PLZ)',
-    'Porto Bellagio 1 (PB1)',
-    'Porto Bellagio 2 (PB2)',
-    'Porto Bellagio 4 (PB4)',
-    'Renaissance (REN)',
-    'Yacht Club at Brickell (YCB)'
+    'Eastside Condominium (EAST)',
+    'Enclave Waterside Villas Condominium Association (EWVCA)',
+    'Futura Sansovino Condominium Association, Inc (FSCA)',
+    'Island Point South (IPSCA)',
+    'Michelle Condominium (MICH)',
+    'Monterrey Condominium Property Association, Inc. (MTC)',
+    'Normandy Shores Condominium (NORM)',
+    'Oxford Gates (OX)',
+    'Palms Of Sunset Condominium Association, Inc (POSS)',
+    'Patricia Condominium (PAT)',
+    'Ritz Royal (RITZ)',
+    'Sage Condominium (SAGE)',
+    'The Niche (NICHE)',
+    'Vizcaya Villas Condominium (VVC)',
+    'Tower Gates (TWG)',
+    'Wilton Terrace Condominium (WTC)'
 ].sort();
 
 const TEAM_MEMBERS = [
