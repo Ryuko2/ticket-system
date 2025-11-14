@@ -552,14 +552,17 @@ function switchToDashboard(dashboard) {
     const manualSection = document.getElementById('manualTicketsSection');
     const whatsappSection = document.getElementById('whatsappTicketsSection');
     const violationsSection = document.getElementById('violationsSection');
+    const workOrdersSection = document.getElementById('workOrdersSection');
     const title = document.getElementById('dashboardTitle');
 
     manualSection.classList.remove('active');
     whatsappSection.classList.remove('active');
     violationsSection.classList.remove('active');
+    if (workOrdersSection) workOrdersSection.classList.remove('active');
 
     document.getElementById('createTicketBtn').style.display = 'none';
     document.getElementById('createViolationBtn').style.display = 'none';
+    document.getElementById('createWorkOrderBtn').style.display = 'none';
     document.getElementById('switchToTicketsBtn').style.display = 'none';
 
     currentDashboard = dashboard;
@@ -584,6 +587,16 @@ function switchToDashboard(dashboard) {
             document.getElementById('createViolationBtn').style.display = 'flex';
             document.getElementById('switchToTicketsBtn').style.display = 'flex';
             if (typeof loadViolations === 'function') loadViolations();
+            break;
+
+        case 'workorders':
+            if (workOrdersSection) {
+                workOrdersSection.classList.add('active');
+            }
+            title.textContent = 'Work Orders';
+            document.getElementById('createWorkOrderBtn').style.display = 'flex';
+            document.getElementById('switchToTicketsBtn').style.display = 'flex';
+            if (typeof loadWorkOrders === 'function') loadWorkOrders();
             break;
     }
 }

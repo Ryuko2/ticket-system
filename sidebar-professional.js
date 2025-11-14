@@ -79,6 +79,11 @@ class AnimatedSidebar {
                     switchToDashboard('manual');
                 }
                 break;
+            case 'workorders':
+                if (typeof switchToDashboard === 'function') {
+                    switchToDashboard('workorders');
+                }
+                break;
             case 'violations':
                 if (typeof switchToDashboard === 'function') {
                     switchToDashboard('violations');
