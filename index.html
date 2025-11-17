@@ -14,11 +14,11 @@
     <link rel="stylesheet" href="simple-lj-animation.css">
     <link rel="stylesheet" href="smooth-transitions.css">
     
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs - FIXED VERSION -->
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getAuth, signInWithPopup, OAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getDatabase } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithPopup, OAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getDatabase } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
         // Firebase configuration
         const firebaseConfig = {
@@ -62,17 +62,23 @@
         onAuthStateChanged(auth, (user) => {
             const loginScreen = document.getElementById('loginScreen');
             const mainApp = document.getElementById('mainApp');
+            const loadingScreen = document.getElementById('loadingScreen');
             
             if (user) {
                 // User is signed in
                 console.log('✅ User authenticated:', user.displayName);
+                if (loadingScreen) loadingScreen.style.display = 'none';
                 if (loginScreen) loginScreen.style.display = 'none';
                 if (mainApp) mainApp.style.display = 'flex';
             } else {
                 // User is signed out
                 console.log('ℹ️ User not authenticated');
-                if (loginScreen) loginScreen.style.display = 'flex';
-                if (mainApp) mainApp.style.display = 'none';
+                // Make sure loading screen is hidden first
+                setTimeout(() => {
+                    if (loadingScreen) loadingScreen.style.display = 'none';
+                    if (loginScreen) loginScreen.style.display = 'flex';
+                    if (mainApp) mainApp.style.display = 'none';
+                }, 100);
             }
         });
     </script>
@@ -100,7 +106,7 @@
     </div>
 
     <!-- Login Screen -->
-    <div id="loginScreen" class="login-screen">
+    <div id="loginScreen" class="login-screen" style="display: none;">
         <div class="login-container">
             <img src="favicon.png" alt="LJ Services Group" class="login-logo">
             <h1>LJ Services Group</h1>
