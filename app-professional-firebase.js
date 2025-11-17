@@ -1,682 +1,468 @@
 // ============================================
-// LJ SERVICES GROUP - PROFESSIONAL APP
-// Complete system with Dropbox integration
+// LJ SERVICES GROUP - MAIN APPLICATION
+// Firebase-Integrated Multi-Device System
 // ============================================
 
-// -------------------------
-// CORRECT 19 Associations
-// -------------------------
-const ASSOCIATIONS = [
-    'Anthony Gardens (ANT)',
-    'Bayshore Treasure Condominium (BTC)',
-    'Cambridge (CAM)',
-    'Eastside Condominium (EAST)',
-    'Enclave Waterside Villas Condominium Association (EWVCA)',
-    'Futura Sansovino Condominium Association, Inc (FSCA)',
-    'Island Point South (IPSCA)',
-    'Michelle Condominium (MICH)',
-    'Monterrey Condominium Property Association, Inc. (MTC)',
-    'Normandy Shores Condominium (NORM)',
-    'Oxford Gates (OX)',
-    'Palms Of Sunset Condominium Association, Inc (POSS)',
-    'Patricia Condominium (PAT)',
-    'Ritz Royal (RITZ)',
-    'Sage Condominium (SAGE)',
-    'The Niche (NICHE)',
-    'Vizcaya Villas Condominium (VVC)',
-    'Tower Gates (TWG)',
-    'Wilton Terrace Condominium (WTC)'
-].sort();
-
-const TEAM_MEMBERS = [
-    'Linda Johnson',
-    'Kevin Rodriguez',
-    'Assistant Manager',
-    'Maintenance Team'
-].sort();
-
-let currentDashboard = 'manual';
-let currentUser = null;
-let isAuthInProgress = false;
-
-// -------------------------
-// Microsoft Authentication
-// -------------------------
+// MSAL Configuration
 const msalConfig = {
     auth: {
-        clientId: "9490235a-076b-464a-a4b7-c2a1b1156fe1",
+        clientId: "YOUR_MICROSOFT_CLIENT_ID",
         authority: "https://login.microsoftonline.com/common",
-        redirectUri: window.location.origin + window.location.pathname
-    },
-    cache: {
-        cacheLocation: "localStorage",
-        storeAuthStateInCookie: false
+        redirectUri: window.location.origin
     }
 };
 
-const loginRequest = {
-    scopes: ["User.Read", "Mail.Send"]
-};
+let msalInstance;
+let currentUser = { name: "Demo User", email: "demo@ljservices.com" };
+window.currentUser = currentUser;
 
-let msalInstance = null;
-
-// -------------------------
-// Dropbox Configuration
-// -------------------------
-const DROPBOX_CLIENT_ID = 'gazrj3d6rgyf6eb';
-const DROPBOX_CONFIG = {
-    accessToken: null,
-    folderPath: '/LJ_Services_Ticketing',
-    fileName: 'tickets.json'
-};
-
-// Dropbox removed - using Firebase instead
-    }
-
-    isAuthenticated() {
-        return !!this.accessToken;
-    }
-
-    authenticate() {
-        const redirectUri = window.location.origin + window.location.pathname;
-        const authUrl = `https://www.dropbox.com/oauth2/authorize?response_type=token&client_id=${encodeURIComponent(
-            DROPBOX_CLIENT_ID
-        )}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-        window.location.href = authUrl;
-    }
-
-    async uploadTickets(ticketsData) {
-        if (!this.accessToken) throw new Error('Not authenticated with Dropbox');
-
-        const path = `${DROPBOX_CONFIG.folderPath}/${DROPBOX_CONFIG.fileName}`;
-        const content = JSON.stringify(ticketsData, null, 2);
-
-        const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.accessToken}`,
-                'Dropbox-API-Arg': JSON.stringify({
-                    path,
-                    mode: 'overwrite',
-                    autorename: false,
-                    mute: false
-                }),
-                'Content-Type': 'application/octet-stream'
-            },
-            body: content
-        });
-
-        if (!response.ok) {
-            throw new Error(`Dropbox upload failed: ${response.status}`);
-        }
-
-        this.lastSync = new Date().toISOString();
-        localStorage.setItem('last_sync', this.lastSync);
-        updateSyncStatus('✓ Synced', 'success');
-    }
-
-    async downloadTickets() {
-        if (!this.accessToken) throw new Error('Not authenticated with Dropbox');
-
-        const path = `${DROPBOX_CONFIG.folderPath}/${DROPBOX_CONFIG.fileName}`;
-
-        const response = await fetch('https://content.dropboxapi.com/2/files/download', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.accessToken}`,
-                'Dropbox-API-Arg': JSON.stringify({ path })
-            }
-        });
-
-        if (response.status === 409) {
-            return { tickets: [] };
-        }
-
-        if (!response.ok) {
-            throw new Error(`Dropbox download failed: ${response.status}`);
-        }
-
-        const text = await response.text();
-        const data = JSON.parse(text);
-        this.lastSync = new Date().toISOString();
-        localStorage.setItem('last_sync', this.lastSync);
-        updateSyncStatus('✓ Synced', 'success');
-        return data;
-    }
-
-    mergeTickets(localTickets, remoteTickets) {
-        const map = new Map();
-
-        const ensureUpdatedAt = (t) => t.updatedAt || t.createdDate || new Date().toISOString();
-
-        localTickets.forEach(t => {
-            const copy = { ...t };
-            copy.updatedAt = ensureUpdatedAt(copy);
-            map.set(copy.id, copy);
-        });
-
-        remoteTickets.forEach(t => {
-            const copy = { ...t };
-            copy.updatedAt = ensureUpdatedAt(copy);
-            const existing = map.get(copy.id);
-            if (!existing || new Date(copy.updatedAt) > new Date(existing.updatedAt)) {
-                map.set(copy.id, copy);
-            }
-        });
-
-        return Array.from(map.values());
-    }
-
-    async syncTickets(localTickets) {
-        if (!this.accessToken) throw new Error('Not authenticated with Dropbox');
-
-        updateSyncStatus('⟳ Syncing...', 'syncing');
-
-        const remoteData = await this.downloadTickets();
-        const remoteTickets = remoteData.tickets || [];
-
-        const merged = this.mergeTickets(localTickets, remoteTickets);
-
-        await this.uploadTickets({
-            tickets: merged,
-            lastSync: new Date().toISOString(),
-            syncedBy: currentUser?.username || currentUser?.name || 'unknown'
-        });
-
-        return merged;
-    }
+// Initialize MSAL
+try {
+    msalInstance = new msal.PublicClientApplication(msalConfig);
+} catch (error) {
+    console.error("MSAL initialization error:", error);
 }
 
+// Associations list - Managed in Settings
+let associations = [
+    "Atlantic III", "Atlantic V", "Brickell View", "Champlain South",
+    "Commodore Club South", "Cricket Club", "Kings Bay", "Mirasol",
+    "Mirasol North", "Normandy Shores", "Ocean View II", "Plaza at Oceanside",
+    "Porto Bellagio 1", "Porto Bellagio 2", "Porto Bellagio 3", "Porto Bellagio 4",
+    "Portofino Tower", "Decoplage", "Soleil"
+];
 
-// -------------------------
-// Storage Functions
-// -------------------------
-function getTickets() {
-    return JSON.parse(localStorage.getItem('tickets') || '[]');
-}
+// Staff members - Managed in Settings
+let staffMembers = [
+    "Linda Johnson", "Kevin", "Maintenance Team", "Accounting", "Management"
+];
 
-function saveTickets(tickets) {
-    localStorage.setItem('tickets', JSON.stringify(tickets));
-}
-
-function generateTicketId() {
-    const tickets = getTickets();
-    const lastNumeric = tickets.length
-        ? Math.max(...tickets.map(t => parseInt(String(t.id).replace('TKT-', '')) || 0))
-        : 0;
-    const next = lastNumeric + 1;
-    return `TKT-${String(next).padStart(5, '0')}`;
-}
-
-// -------------------------
-// Initialization
-// -------------------------
+// Initialize app
 document.addEventListener('DOMContentLoaded', initApp);
 
-async function initApp() {
-    isAuthInProgress = false;
+function initApp() {
+    console.log('🚀 Initializing LJ Services Ticketing System...');
     
-    // Initialize MSAL
-    try {
-        if (typeof msal !== 'undefined') {
-            msalInstance = new msal.PublicClientApplication(msalConfig);
-            await msalInstance.initialize();
-            
-            try {
-                await msalInstance.handleRedirectPromise();
-            } catch (e) {
-                console.log('Cleared pending MSAL interaction:', e);
-            }
-        }
-    } catch (error) {
-        console.error('MSAL initialization error:', error);
-    }
+    // Load settings from Firebase
+    loadSettingsFromFirebase();
     
-    // Handle Dropbox redirect
-    let justConnectedDropbox = false;
-    if (window.location.hash.includes('access_token')) {
-        const params = new URLSearchParams(window.location.hash.substring(1));
-        const token = params.get('access_token');
-        if (token) {
-            localStorage.setItem('dropbox_token', token);
-            dropboxStorage.accessToken = token;
-            DROPBOX_CONFIG.accessToken = token;
-            justConnectedDropbox = true;
-            window.history.replaceState({}, document.title, window.location.pathname);
-            showNotification('Dropbox connected successfully!', 'success');
-        }
-    }
-
-    // Try MSAL silent login
-    if (msalInstance) {
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-            currentUser = accounts[0];
-        }
-    }
-
-    // Check saved user session
-    const savedUser = localStorage.getItem('currentUser');
-    if (!currentUser && savedUser) {
-        try {
-            currentUser = JSON.parse(savedUser);
-        } catch (e) {
-            localStorage.removeItem('currentUser');
-        }
-    }
-
+    // Setup event listeners
     setupEventListeners();
-    populateDropdowns();
-
-    if (currentUser || justConnectedDropbox) {
-        if (justConnectedDropbox && !currentUser) {
-            currentUser = {
-                username: 'dropbox-user@ljservicesgroup.com',
-                name: 'Dropbox User'
-            };
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        }
-        showDashboard();
-    } else {
-        document.getElementById('loginScreen').classList.add('active');
-    }
-
-    if (dropboxStorage.isAuthenticated()) {
-        updateSyncStatus("🔥 Firebase", "success") connected', 'success');
-    }
     
-    console.log('✅ App initialized with correct 19 associations');
+    // Populate dropdowns
+    populateAssociationDropdowns();
+    populateStaffDropdowns();
+    
+    // Check authentication
+    checkAuthentication();
+    
+    console.log('✅ App initialized');
 }
 
-// -------------------------
-// Event Listeners
-// -------------------------
+// Load settings from Firebase
+async function loadSettingsFromFirebase() {
+    if (typeof firebase === 'undefined' || !firebase.database) {
+        console.log('⏳ Waiting for Firebase...');
+        setTimeout(loadSettingsFromFirebase, 500);
+        return;
+    }
+    
+    try {
+        const settingsRef = firebase.database().ref('settings');
+        const snapshot = await settingsRef.once('value');
+        const settings = snapshot.val();
+        
+        if (settings) {
+            if (settings.associations) {
+                associations = settings.associations;
+                populateAssociationDropdowns();
+            }
+            if (settings.staffMembers) {
+                staffMembers = settings.staffMembers;
+                populateStaffDropdowns();
+            }
+        } else {
+            // Initialize default settings
+            await settingsRef.set({
+                associations: associations,
+                staffMembers: staffMembers,
+                vendors: [],
+                violationRules: {}
+            });
+        }
+        
+        console.log('✅ Settings loaded from Firebase');
+    } catch (error) {
+        console.error('Error loading settings:', error);
+    }
+}
+
+// Setup all event listeners
 function setupEventListeners() {
-    document.getElementById('loginButton')?.addEventListener('click', handleLogin);
-    document.getElementById('dropboxLoginBtn')?.addEventListener('click', handleDropboxLogin);
+    // Login buttons
+    document.getElementById('loginButton')?.addEventListener('click', handleMicrosoftLogin);
     document.getElementById('demoLoginBtn')?.addEventListener('click', handleDemoLogin);
     document.getElementById('logoutButton')?.addEventListener('click', handleLogout);
-
-    document.getElementById('createTicketBtn')?.addEventListener('click', openCreateTicketModal);
-    document.querySelector('.close-modal')?.addEventListener('click', closeTicketModal);
-    document.querySelector('.cancel-btn')?.addEventListener('click', closeTicketModal);
-    document.getElementById('ticketForm')?.addEventListener('submit', handleTicketSubmit);
-
+    
+    // Create ticket button
+    const createTicketBtn = document.getElementById('createTicketBtn');
+    if (createTicketBtn) {
+        createTicketBtn.addEventListener('click', openCreateTicketModal);
+    }
+    
+    // Ticket form
+    const ticketForm = document.getElementById('ticketForm');
+    if (ticketForm) {
+        ticketForm.addEventListener('submit', handleCreateTicket);
+    }
+    
+    // Modal close buttons
+    document.querySelectorAll('.modal-close, .cancel-btn').forEach(btn => {
+        btn.addEventListener('click', closeAllModals);
+    });
+    
+    // Filters
     document.getElementById('statusFilter')?.addEventListener('change', applyFilters);
     document.getElementById('associationFilter')?.addEventListener('change', applyFilters);
     document.getElementById('priorityFilter')?.addEventListener('change', applyFilters);
     document.getElementById('searchInput')?.addEventListener('input', applyFilters);
-
-    document.getElementById('switchToViolationsBtn')?.addEventListener('click', () => switchToDashboard('violations'));
-    document.getElementById('switchToWhatsAppBtn')?.addEventListener('click', () => switchToDashboard('whatsapp'));
-    document.getElementById('switchToTicketsBtn')?.addEventListener('click', () => switchToDashboard('manual'));
-
-    document.getElementById('createViolationBtn')?.addEventListener('click', () => {
-        if (typeof openCreateViolationModal === 'function') openCreateViolationModal();
-    });
-
-    document.getElementById('syncDropboxBtn')?.addEventListener('click', handleManualSync);
 }
 
-// -------------------------
-// Auth Handlers
-// -------------------------
-async function handleLogin() {
-    if (!msalInstance) {
-        alert('Microsoft login not available. Use Demo Mode or Dropbox.');
-        return;
-    }
-
-    if (isAuthInProgress) return;
-
-    try {
-        isAuthInProgress = true;
-        await msalInstance.handleRedirectPromise();
-        const response = await msalInstance.loginPopup(loginRequest);
-        currentUser = response.account;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+// Check authentication
+function checkAuthentication() {
+    const isAuthenticated = sessionStorage.getItem('isAuthenticated');
+    if (isAuthenticated) {
+        const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
+        currentUser = userData;
+        window.currentUser = userData;
         showDashboard();
-    } catch (err) {
-        console.error('Login error:', err);
-        if (err.errorCode === 'user_cancelled') {
-            console.log('User cancelled login');
-        } else {
-            alert('Login failed. Try Demo Mode.');
-        }
-    } finally {
-        isAuthInProgress = false;
     }
 }
 
-function handleDropboxLogin() {
-    if (isAuthInProgress) return;
-    isAuthInProgress = true;
-    dropboxStorage.authenticate();
+// Microsoft Login
+async function handleMicrosoftLogin() {
+    try {
+        const loginResponse = await msalInstance.loginPopup({
+            scopes: ["user.read"]
+        });
+        
+        currentUser = {
+            name: loginResponse.account.name,
+            email: loginResponse.account.username
+        };
+        window.currentUser = currentUser;
+        
+        sessionStorage.setItem('isAuthenticated', 'true');
+        sessionStorage.setItem('userData', JSON.stringify(currentUser));
+        
+        showDashboard();
+    } catch (error) {
+        console.error('Login error:', error);
+        alert('Login failed. Please try again.');
+    }
 }
 
+// Demo Login
 function handleDemoLogin() {
-    if (isAuthInProgress) return;
-    isAuthInProgress = true;
-    
     currentUser = {
-        username: 'demo@ljservicesgroup.com',
-        name: 'Demo User'
+        name: "Demo User",
+        email: "demo@ljservices.com"
     };
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    window.currentUser = currentUser;
+    
+    sessionStorage.setItem('isAuthenticated', 'true');
+    sessionStorage.setItem('userData', JSON.stringify(currentUser));
+    
     showDashboard();
-    isAuthInProgress = false;
 }
 
+// Logout
 function handleLogout() {
-    if (msalInstance && msalInstance.getAllAccounts().length > 0) {
-        msalInstance.logoutPopup();
-    }
-    currentUser = null;
-    localStorage.removeItem('currentUser');
-    document.getElementById('dashboardScreen').style.display = 'none';
-    document.getElementById('loginScreen').style.display = 'block';
+    sessionStorage.clear();
+    window.location.reload();
 }
 
-// -------------------------
-// Dashboard
-// -------------------------
+// Show dashboard
 function showDashboard() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('dashboardScreen').style.display = 'block';
-    document.getElementById('logoutButton').style.display = 'inline-block';
-
-    const emailLabel = document.getElementById('userEmail');
-    if (emailLabel) {
-        emailLabel.textContent = currentUser.username || currentUser.name || 'User';
-    }
-
-    loadTickets();
-    updateStats();
+    document.getElementById('userEmail').textContent = currentUser.name || currentUser.email;
+    document.getElementById('logoutButton').style.display = 'block';
+    
+    // Wait for Firebase to be ready
+    waitForFirebase();
 }
 
-// -------------------------
-// Tickets
-// -------------------------
-function loadTickets() {
-    const tickets = getTickets().filter(t => !t.fromWhatsApp);
-    const ticketsList = document.getElementById('ticketsList');
-
-    if (!ticketsList) return;
-
-    if (tickets.length === 0) {
-        ticketsList.innerHTML = `
-            <div class="empty-state">
-                <h3>No tickets yet</h3>
-                <p>Create your first ticket to get started</p>
-            </div>
-        `;
+// Wait for Firebase to initialize
+function waitForFirebase() {
+    if (typeof firebase === 'undefined' || !firebase.database) {
+        console.log('⏳ Waiting for Firebase...');
+        setTimeout(waitForFirebase, 500);
         return;
     }
-
-    tickets.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-    ticketsList.innerHTML = tickets.map(createTicketCard).join('');
+    
+    console.log('✅ Firebase ready, loading tickets...');
+    // Tickets will load automatically via Firebase listeners
 }
 
-function createTicketCard(ticket) {
-    const createdDate = new Date(ticket.createdDate).toLocaleDateString();
-    return `
-        <div class="ticket-card" data-ticket-id="${ticket.id}">
-            <div class="ticket-header">
-                <h3>${ticket.title}</h3>
-                <div class="ticket-badges">
-                    <span class="badge status-badge ${ticket.status}">
-                        ${ticket.status.replace('-', ' ').toUpperCase()}
-                    </span>
-                    <span class="badge priority-badge ${ticket.priority}">
-                        ${ticket.priority.toUpperCase()}
-                    </span>
-                </div>
-            </div>
-            <p class="ticket-description">${ticket.description || 'No description'}</p>
-            <div class="ticket-meta">
-                <span class="ticket-id">${ticket.id}</span>
-                <span>🏢 ${ticket.association}</span>
-                <span>📅 ${createdDate}</span>
-                <span>👤 ${ticket.assignedTo || 'Unassigned'}</span>
-            </div>
-        </div>
-    `;
-}
-
-function updateStats() {
-    const tickets = getTickets().filter(t => !t.fromWhatsApp);
-    const open = tickets.filter(t => t.status === 'open').length;
-    const inProgress = tickets.filter(t => t.status === 'in-progress').length;
-    const completed = tickets.filter(t => t.status === 'completed').length;
-
-    document.getElementById('openTickets').textContent = open;
-    document.getElementById('inProgressTickets').textContent = inProgress;
-    document.getElementById('completedTickets').textContent = completed;
-    document.getElementById('totalTickets').textContent = tickets.length;
-}
-
-// -------------------------
-// Ticket Creation
-// -------------------------
-function openCreateTicketModal() {
-    document.getElementById('ticketModal').classList.add('active');
-    document.getElementById('modalTitle').textContent = 'Create New Ticket';
-    document.getElementById('ticketForm').reset();
-}
-
-function closeTicketModal() {
-    document.getElementById('ticketModal').classList.remove('active');
-}
-
-function handleTicketSubmit(e) {
-    e.preventDefault();
-
-    const now = new Date().toISOString();
-
-    const ticket = {
-        id: generateTicketId(),
-        title: document.getElementById('ticketTitle').value,
-        association: document.getElementById('ticketAssociation').value,
-        priority: document.getElementById('ticketPriority').value,
-        assignedTo: document.getElementById('ticketAssignedTo').value || '',
-        description: document.getElementById('ticketDescription').value,
-        dueDate: document.getElementById('ticketDueDate').value || null,
-        status: 'open',
-        createdBy: currentUser.username || currentUser.name,
-        createdDate: now,
-        updatedAt: now,
-        updates: [],
-        fromWhatsApp: false
-    };
-
-    const tickets = getTickets();
-    tickets.push(ticket);
-    saveTickets(tickets);
-
-    closeTicketModal();
-    loadTickets();
-    updateStats();
-    showNotification('Ticket created successfully!', 'success');
-}
-
-// -------------------------
-// Filters
-// -------------------------
-function applyFilters() {
-    const statusFilter = document.getElementById('statusFilter').value;
-    const associationFilter = document.getElementById('associationFilter').value;
-    const priorityFilter = document.getElementById('priorityFilter').value;
-    const searchText = document.getElementById('searchInput').value.toLowerCase();
-
-    let tickets = getTickets().filter(t => !t.fromWhatsApp);
-
-    if (statusFilter) tickets = tickets.filter(t => t.status === statusFilter);
-    if (associationFilter) tickets = tickets.filter(t => t.association === associationFilter);
-    if (priorityFilter) tickets = tickets.filter(t => t.priority === priorityFilter);
-    if (searchText) {
-        tickets = tickets.filter(t =>
-            t.title.toLowerCase().includes(searchText) ||
-            t.description.toLowerCase().includes(searchText) ||
-            String(t.id).toLowerCase().includes(searchText)
-        );
-    }
-
-    const ticketsList = document.getElementById('ticketsList');
-    if (!ticketsList) return;
-
-    if (tickets.length === 0) {
-        ticketsList.innerHTML = `
-            <div class="empty-state">
-                <h3>No tickets found</h3>
-                <p>Try adjusting your filters</p>
-            </div>
-        `;
-        return;
-    }
-
-    tickets.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-    ticketsList.innerHTML = tickets.map(createTicketCard).join('');
-}
-
-// -------------------------
-// Dashboard Switching
-// -------------------------
-function switchToDashboard(dashboard) {
-    const manualSection = document.getElementById('manualTicketsSection');
-    const whatsappSection = document.getElementById('whatsappTicketsSection');
-    const violationsSection = document.getElementById('violationsSection');
-    const workOrdersSection = document.getElementById('workOrdersSection');
-    const title = document.getElementById('dashboardTitle');
-
-    manualSection.classList.remove('active');
-    whatsappSection.classList.remove('active');
-    violationsSection.classList.remove('active');
-    if (workOrdersSection) workOrdersSection.classList.remove('active');
-
-    document.getElementById('createTicketBtn').style.display = 'none';
-    document.getElementById('createViolationBtn').style.display = 'none';
-    document.getElementById('createWorkOrderBtn').style.display = 'none';
-    document.getElementById('switchToTicketsBtn').style.display = 'none';
-
-    currentDashboard = dashboard;
-
-    switch (dashboard) {
-        case 'manual':
-            manualSection.classList.add('active');
-            title.textContent = 'Ticket Dashboard';
-            document.getElementById('createTicketBtn').style.display = 'flex';
-            loadTickets();
-            break;
-
-        case 'whatsapp':
-            whatsappSection.classList.add('active');
-            title.textContent = 'WhatsApp Tickets';
-            document.getElementById('switchToTicketsBtn').style.display = 'flex';
-            break;
-
-        case 'violations':
-            violationsSection.classList.add('active');
-            title.textContent = 'Violations Management';
-            document.getElementById('createViolationBtn').style.display = 'flex';
-            document.getElementById('switchToTicketsBtn').style.display = 'flex';
-            if (typeof loadViolations === 'function') loadViolations();
-            break;
-
-        case 'workorders':
-            if (workOrdersSection) {
-                workOrdersSection.classList.add('active');
-            }
-            title.textContent = 'Work Orders';
-            document.getElementById('createWorkOrderBtn').style.display = 'flex';
-            document.getElementById('switchToTicketsBtn').style.display = 'flex';
-            if (typeof loadWorkOrders === 'function') loadWorkOrders();
-            break;
-    }
-}
-
-// -------------------------
-// Dropdowns
-// -------------------------
-function populateDropdowns() {
-    const associationSelects = [
+// Populate association dropdowns
+function populateAssociationDropdowns() {
+    const selects = [
         document.getElementById('ticketAssociation'),
-        document.getElementById('associationFilter')
+        document.getElementById('associationFilter'),
+        document.getElementById('violationAssociation'),
+        document.getElementById('workOrderAssociation')
     ];
-
-    associationSelects.forEach(select => {
+    
+    selects.forEach(select => {
         if (!select) return;
+        
+        // Save current value
+        const currentValue = select.value;
+        
+        // Clear existing options (except "All Associations" for filter)
         if (select.id === 'associationFilter') {
-            ASSOCIATIONS.forEach(assoc => {
-                const option = document.createElement('option');
-                option.value = assoc;
-                option.textContent = assoc;
-                select.appendChild(option);
-            });
+            select.innerHTML = '<option value="">All Associations</option>';
         } else {
-            ASSOCIATIONS.forEach(assoc => {
-                const option = document.createElement('option');
-                option.value = assoc;
-                option.textContent = assoc;
-                select.appendChild(option);
-            });
+            select.innerHTML = '<option value="">Select Association</option>';
         }
-    });
-
-    const assignSelects = [
-        document.getElementById('ticketAssignedTo')
-    ];
-    assignSelects.forEach(select => {
-        if (!select) return;
-        TEAM_MEMBERS.forEach(member => {
+        
+        // Add associations
+        associations.sort().forEach(assoc => {
             const option = document.createElement('option');
-            option.value = member;
-            option.textContent = member;
+            option.value = assoc;
+            option.textContent = assoc;
             select.appendChild(option);
         });
+        
+        // Restore value if it still exists
+        if (currentValue && associations.includes(currentValue)) {
+            select.value = currentValue;
+        }
     });
 }
 
-// -------------------------
-// Dropbox Sync
-// -------------------------
-async function handleManualSync() {
-    if (!dropboxStorage.isAuthenticated()) {
-        alert('Connect Dropbox first.');
+// Populate staff dropdowns
+function populateStaffDropdowns() {
+    const select = document.getElementById('ticketAssignedTo');
+    if (!select) return;
+    
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">Unassigned</option>';
+    
+    staffMembers.sort().forEach(staff => {
+        const option = document.createElement('option');
+        option.value = staff;
+        option.textContent = staff;
+        select.appendChild(option);
+    });
+    
+    if (currentValue && staffMembers.includes(currentValue)) {
+        select.value = currentValue;
+    }
+}
+
+// Open create ticket modal
+function openCreateTicketModal() {
+    const modal = document.getElementById('ticketModal');
+    if (!modal) return;
+    
+    // Reset form
+    document.getElementById('ticketForm').reset();
+    document.getElementById('modalTitle').textContent = 'Create New Ticket';
+    
+    // Show modal
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+// Handle create ticket
+async function handleCreateTicket(e) {
+    e.preventDefault();
+    
+    const title = document.getElementById('ticketTitle').value.trim();
+    const association = document.getElementById('ticketAssociation').value;
+    const priority = document.getElementById('ticketPriority').value;
+    const assignedTo = document.getElementById('ticketAssignedTo').value;
+    const description = document.getElementById('ticketDescription').value.trim();
+    const dueDate = document.getElementById('ticketDueDate').value;
+    
+    if (!title || !association || !priority) {
+        alert('Please fill in all required fields');
         return;
     }
-
+    
+    const ticketData = {
+        title: title,
+        association: association,
+        priority: priority,
+        status: 'open',
+        assignedTo: assignedTo || 'Unassigned',
+        description: description,
+        dueDate: dueDate,
+        createdBy: currentUser.name || currentUser.email,
+        createdDate: new Date().toISOString(),
+        source: 'manual',
+        updates: []
+    };
+    
     try {
-        const local = getTickets();
-        const merged = await dropboxStorage.syncTickets(local);
-        saveTickets(merged);
-        loadTickets();
-        updateStats();
-        showNotification('Sync completed!', 'success');
-    } catch (err) {
-        console.error('Sync error:', err);
-        showNotification('Sync failed.', 'error');
+        // Create ticket in Firebase
+        await createTicketFirebase(ticketData);
+        
+        // Close modal
+        closeAllModals();
+        
+        // Reset form
+        document.getElementById('ticketForm').reset();
+        
+        // Show success message
+        showNotification('Ticket created successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error creating ticket:', error);
+        showNotification('Error creating ticket. Please try again.', 'error');
     }
 }
 
-function updateSyncStatus(message, type) {
-    const el = document.getElementById('syncStatus');
-    if (!el) return;
-    el.textContent = message;
+// Close all modals
+function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+    });
 }
 
+// Apply filters
+function applyFilters() {
+    // Filters are applied by Firebase listeners in real-time
+    // This function can be used for client-side filtering if needed
+    console.log('Filters updated');
+}
+
+// Show notification
 function showNotification(message, type = 'info') {
-    const n = document.createElement('div');
-    n.className = `notification notification-${type}`;
-    n.textContent = message;
-    document.body.appendChild(n);
-
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
     setTimeout(() => {
-        n.classList.add('show');
-    }, 10);
-
-    setTimeout(() => {
-        n.remove();
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
     }, 3000);
 }
 
-console.log('✅ App loaded with Dropbox integration');
+// Add CSS for notifications
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
+// Update stats
+function updateStats() {
+    // Stats are updated by Firebase listeners
+    console.log('Stats updated');
+}
+
+// Render tickets
+function renderTickets(tickets) {
+    const ticketsList = document.getElementById('ticketsList');
+    if (!ticketsList) return;
+    
+    // Apply filters
+    const statusFilter = document.getElementById('statusFilter')?.value || '';
+    const associationFilter = document.getElementById('associationFilter')?.value || '';
+    const priorityFilter = document.getElementById('priorityFilter')?.value || '';
+    const searchQuery = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    
+    let filteredTickets = tickets.filter(ticket => {
+        if (statusFilter && ticket.status !== statusFilter) return false;
+        if (associationFilter && ticket.association !== associationFilter) return false;
+        if (priorityFilter && ticket.priority !== priorityFilter) return false;
+        if (searchQuery) {
+            const searchText = `${ticket.title} ${ticket.description} ${ticket.association}`.toLowerCase();
+            if (!searchText.includes(searchQuery)) return false;
+        }
+        return true;
+    });
+    
+    // Update stats
+    const openCount = tickets.filter(t => t.status === 'open').length;
+    const inProgressCount = tickets.filter(t => t.status === 'in-progress').length;
+    const completedCount = tickets.filter(t => t.status === 'completed').length;
+    
+    document.getElementById('openTickets').textContent = openCount;
+    document.getElementById('inProgressTickets').textContent = inProgressCount;
+    document.getElementById('completedTickets').textContent = completedCount;
+    document.getElementById('totalTickets').textContent = tickets.length;
+    
+    // Render filtered tickets
+    if (filteredTickets.length === 0) {
+        ticketsList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No tickets found</div>';
+        return;
+    }
+    
+    ticketsList.innerHTML = filteredTickets.map(ticket => `
+        <div class="ticket-card ${ticket.priority}" data-ticket-id="${ticket.id}">
+            <div class="ticket-header">
+                <h3>${ticket.title}</h3>
+                <span class="badge ${ticket.status}">${ticket.status.replace('-', ' ').toUpperCase()}</span>
+            </div>
+            <div class="ticket-info">
+                <div class="ticket-meta">
+                    <span class="badge priority-${ticket.priority}">${ticket.priority.toUpperCase()}</span>
+                    <span>${ticket.association}</span>
+                </div>
+                <p class="ticket-description">${ticket.description || 'No description'}</p>
+                <div class="ticket-footer">
+                    <span>👤 ${ticket.assignedTo || 'Unassigned'}</span>
+                    <span>📅 ${new Date(ticket.createdDate).toLocaleDateString()}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    // Make cards clickable
+    if (typeof attachTicketClickListeners === 'function') {
+        attachTicketClickListeners();
+    }
+}
+
+console.log('✅ app-professional-firebase.js loaded');
