@@ -25,11 +25,25 @@ try {
 
 // Associations list - Managed in Settings
 let associations = [
-    "Atlantic III", "Atlantic V", "Brickell View", "Champlain South",
-    "Commodore Club South", "Cricket Club", "Kings Bay", "Mirasol",
-    "Mirasol North", "Normandy Shores", "Ocean View II", "Plaza at Oceanside",
-    "Porto Bellagio 1", "Porto Bellagio 2", "Porto Bellagio 3", "Porto Bellagio 4",
-    "Portofino Tower", "Decoplage", "Soleil"
+    'Anthony Gardens (ANT)',
+    'Bayshore Treasure Condominium (BTC)',
+    'Cambridge (CAM)',
+    'Eastside Condominium (EAST)',
+    'Enclave Waterside Villas Condominium Association (EWVCA)',
+    'Futura Sansovino Condominium Association, Inc (FSCA)',
+    'Island Point South (IPSCA)',
+    'Michelle Condominium (MICH)',
+    'Monterrey Condominium Property Association, Inc. (MTC)',
+    'Normandy Shores Condominium (NORM)',
+    'Oxford Gates (OX)',
+    'Palms Of Sunset Condominium Association, Inc (POSS)',
+    'Patricia Condominium (PAT)',
+    'Ritz Royal (RITZ)',
+    'Sage Condominium (SAGE)',
+    'The Niche (NICHE)',
+    'Vizcaya Villas Condominium (VVC)',
+    'Tower Gates (TWG)',
+    'Wilton Terrace Condominium (WTC)'
 ];
 
 // Staff members - Managed in Settings
