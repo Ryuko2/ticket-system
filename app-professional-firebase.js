@@ -6,7 +6,7 @@
 // MSAL Configuration
 const msalConfig = {
     auth: {
-        clientId: "YOUR_MICROSOFT_CLIENT_ID",
+        clientId: "9490235a-076b-464a-a4b7-c2a1b1156fe1",
         authority: "https://login.microsoftonline.com/common",
         redirectUri: window.location.origin
     }
