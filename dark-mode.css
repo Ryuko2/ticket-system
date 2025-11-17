@@ -1,12 +1,179 @@
-/* Dark Mode Styles */
+/* ============================================
+   DARK MODE STYLES
+   Beautiful animated theme switcher
+   ============================================ */
+
+/* View Transition Animation Variables */
+:root {
+    --x: 50%;
+    --y: 50%;
+}
+
+/* Dark Theme Colors */
 [data-theme="dark"] {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2d2d2d;
-    --bg-tertiary: #3d3d3d;
-    --text-primary: #ffffff;
-    --text-secondary: #9ca3af;
-    --text-tertiary: #6b7280;
-    --border-color: #374151;
-    --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --box-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    --text-primary: #f7fafc;
+    --text-secondary: #cbd5e0;
+    --text-light: #a0aec0;
+    --bg-primary: #1a202c;
+    --bg-secondary: #2d3748;
+    --bg-dark: #0f1419;
+    --border-color: #4a5568;
+    
+    color-scheme: dark;
+}
+
+/* View Transition Animations */
+@keyframes reveal-in {
+    from {
+        clip-path: circle(0% at var(--x) var(--y));
+    }
+    to {
+        clip-path: circle(150% at var(--x) var(--y));
+    }
+}
+
+@keyframes reveal-out {
+    from {
+        clip-path: circle(150% at var(--x) var(--y));
+    }
+    to {
+        clip-path: circle(0% at var(--x) var(--y));
+    }
+}
+
+::view-transition-new(root) {
+    animation: reveal-in 0.5s ease-in-out forwards;
+    z-index: 1;
+    mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+    animation: reveal-out 0.5s ease-in-out forwards;
+    animation-delay: 0s;
+    z-index: 0;
+    mix-blend-mode: normal;
+}
+
+::view-transition-image-pair(root) {
+    isolation: isolate;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    position: relative;
+    cursor: pointer;
+    margin-right: 1rem;
+}
+
+.theme-toggle input {
+    display: none;
+}
+
+.theme-toggle .toggle-icon {
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    position: relative;
+    box-shadow: inset 16px -16px 0 0 var(--text-primary);
+    transform: scale(0.7) rotate(-2deg);
+    transition: box-shadow 0.5s ease 0s, transform 0.4s ease 0.1s;
+}
+
+.theme-toggle .toggle-icon:before {
+    content: '';
+    width: inherit;
+    height: inherit;
+    border-radius: inherit;
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: transparent;
+    transition: background 0.3s ease;
+}
+
+.theme-toggle .toggle-icon:after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin: -4px 0 0 -4px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    box-shadow: 0 -23px 0 var(--text-primary),
+        0 23px 0 var(--text-primary),
+        23px 0 0 var(--text-primary),
+        -23px 0 0 var(--text-primary),
+        15px 15px 0 var(--text-primary),
+        -15px 15px 0 var(--text-primary),
+        15px -15px 0 var(--text-primary),
+        -15px -15px 0 var(--text-primary);
+    transform: scale(0);
+    transition: all 0.3s ease;
+}
+
+.theme-toggle input:checked + .toggle-icon {
+    box-shadow: inset 32px -32px 0 0 var(--bg-primary);
+    transform: scale(0.7) rotate(0deg);
+    transition: transform 0.3s ease 0.1s, box-shadow 0.2s ease 0s;
+}
+
+.theme-toggle input:checked + .toggle-icon:before {
+    background: var(--text-primary);
+    transition: background 0.3s ease 0.1s;
+}
+
+.theme-toggle input:checked + .toggle-icon:after {
+    transform: scale(1.5);
+    transition: transform 0.5s ease 0.15s;
+}
+
+/* Dark Mode Specific Adjustments */
+[data-theme="dark"] .header {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+}
+
+[data-theme="dark"] .login-card,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .ticket-card,
+[data-theme="dark"] .filters-section,
+[data-theme="dark"] .modal-content {
+    background: var(--bg-secondary);
+}
+
+[data-theme="dark"] .sidebar {
+    background: var(--bg-secondary);
+    border-right-color: var(--border-color);
+}
+
+[data-theme="dark"] .empty-state {
+    background: var(--bg-secondary);
+}
+
+/* Logo image styling */
+.login-logo {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+}
+
+/* Smooth transitions for all theme changes */
+* {
+    transition: background-color 0.3s ease, 
+                color 0.3s ease, 
+                border-color 0.3s ease;
+}
+
+/* Exclude elements that have their own transitions */
+.sidebar,
+.sidebar *,
+.modal,
+.modal *,
+button,
+input,
+select,
+textarea {
+    transition: all 0.3s ease !important;
 }
