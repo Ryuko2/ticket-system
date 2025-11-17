@@ -1,372 +1,298 @@
 // ============================================
-// FIREBASE REAL-TIME DATABASE
-// Multi-device ticket synchronization
-// LJ Services Group - Kevin's Configuration
+// FIREBASE REAL-TIME DATABASE OPERATIONS
+// Works with Firebase initialized in index.html
+// NO duplicate initialization!
 // ============================================
 
-// Firebase Configuration - YOUR ACTUAL CREDENTIALS
-const firebaseConfig = {
-    apiKey: "AIzaSyBVVBJ4RyLwN5pHmggd7aXKhVD-R9cIh7M",
-    authDomain: "lj-services-group.firebaseapp.com",
-    databaseURL: "https://lj-services-group-default-rtdb.firebaseio.com",
-    projectId: "lj-services-group",
-    storageBucket: "lj-services-group.firebasestorage.app",
-    messagingSenderId: "697032093546",
-    appId: "1:697032093546:web:96dd395f0846c65a9eff13",
-    measurementId: "G-179WM33MCX"
-};
+import { getDatabase, ref, set, push, onValue, update, remove, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-// Initialize Firebase (will be done after Firebase SDK loads)
-let database = null;
-let ticketsRef = null;
-let workOrdersRef = null;
-let violationsRef = null;
+// Get database from global window object (initialized in index.html)
+const database = window.firebaseDatabase;
 
-function initFirebase() {
-    if (typeof firebase === 'undefined') {
-        console.error('Firebase not loaded');
-        return false;
-    }
-    
-    try {
-        firebase.initializeApp(firebaseConfig);
-        database = firebase.database();
-        
-        // Database references
-        ticketsRef = database.ref('tickets');
-        workOrdersRef = database.ref('workOrders');
-        violationsRef = database.ref('violations');
-        
-        console.log('✅ Firebase initialized successfully!');
-        console.log('📡 Connected to:', firebaseConfig.databaseURL);
-        
-        // Setup real-time listeners
-        setupRealtimeListeners();
-        
-        return true;
-    } catch (error) {
-        console.error('Firebase init error:', error);
-        return false;
-    }
+if (!database) {
+    console.error('❌ Firebase database not available! Make sure index.html initializes Firebase first.');
 }
 
-// Setup real-time listeners for live updates
-function setupRealtimeListeners() {
-    // Listen for ticket changes
-    ticketsRef.on('value', (snapshot) => {
+// ============================================================================
+// TICKETS OPERATIONS
+// ============================================================================
+
+// Subscribe to tickets real-time updates
+export function subscribeToTickets(callback) {
+    if (!database) {
+        console.error('Database not initialized');
+        return;
+    }
+    
+    const ticketsRef = ref(database, 'tickets');
+    
+    onValue(ticketsRef, (snapshot) => {
         const tickets = [];
         snapshot.forEach((childSnapshot) => {
             tickets.push({
-                id: childSnapshot.key,
+                firebaseKey: childSnapshot.key,
                 ...childSnapshot.val()
             });
         });
         
-        // Update UI
-        if (typeof renderTickets === 'function') {
-            renderTickets(tickets);
+        console.log('📡 Tickets updated:', tickets.length);
+        callback(tickets);
+    });
+}
+
+// Save new ticket
+export async function saveTicket(ticketData) {
+    if (!database) throw new Error('Database not initialized');
+    
+    const ticketsRef = ref(database, 'tickets');
+    const newTicketRef = push(ticketsRef);
+    
+    const ticket = {
+        id: `TKT-${Date.now()}`,
+        ...ticketData,
+        createdAt: new Date().toISOString()
+    };
+    
+    await set(newTicketRef, ticket);
+    console.log('✅ Ticket saved:', ticket.id);
+    return ticket.id;
+}
+
+// Update ticket
+export async function updateTicket(ticketId, updates) {
+    if (!database) throw new Error('Database not initialized');
+    
+    // Find ticket by ID
+    const ticketsRef = ref(database, 'tickets');
+    const snapshot = await get(ticketsRef);
+    
+    let ticketKey = null;
+    snapshot.forEach((childSnapshot) => {
+        if (childSnapshot.val().id === ticketId) {
+            ticketKey = childSnapshot.key;
         }
-        if (typeof updateStats === 'function') {
-            updateStats();
-        }
-        
-        console.log('📡 Tickets updated from Firebase:', tickets.length);
     });
     
-    // Listen for work order changes
-    workOrdersRef.on('value', (snapshot) => {
+    if (!ticketKey) throw new Error('Ticket not found');
+    
+    const ticketRef = ref(database, `tickets/${ticketKey}`);
+    await update(ticketRef, {
+        ...updates,
+        updatedAt: new Date().toISOString()
+    });
+    
+    console.log('✅ Ticket updated:', ticketId);
+}
+
+// Delete ticket
+export async function deleteTicket(ticketId) {
+    if (!database) throw new Error('Database not initialized');
+    
+    // Find ticket by ID
+    const ticketsRef = ref(database, 'tickets');
+    const snapshot = await get(ticketsRef);
+    
+    let ticketKey = null;
+    snapshot.forEach((childSnapshot) => {
+        if (childSnapshot.val().id === ticketId) {
+            ticketKey = childSnapshot.key;
+        }
+    });
+    
+    if (!ticketKey) throw new Error('Ticket not found');
+    
+    const ticketRef = ref(database, `tickets/${ticketKey}`);
+    await remove(ticketRef);
+    
+    console.log('✅ Ticket deleted:', ticketId);
+}
+
+// ============================================================================
+// WORK ORDERS OPERATIONS
+// ============================================================================
+
+// Subscribe to work orders real-time updates
+export function subscribeToWorkOrders(callback) {
+    if (!database) {
+        console.error('Database not initialized');
+        return;
+    }
+    
+    const workOrdersRef = ref(database, 'workOrders');
+    
+    onValue(workOrdersRef, (snapshot) => {
         const workOrders = [];
         snapshot.forEach((childSnapshot) => {
             workOrders.push({
-                id: childSnapshot.key,
+                firebaseKey: childSnapshot.key,
                 ...childSnapshot.val()
             });
         });
         
-        if (typeof renderWorkOrders === 'function') {
-            renderWorkOrders(workOrders);
+        console.log('📡 Work orders updated:', workOrders.length);
+        callback(workOrders);
+    });
+}
+
+// Save new work order
+export async function saveWorkOrder(workOrderData) {
+    if (!database) throw new Error('Database not initialized');
+    
+    const workOrdersRef = ref(database, 'workOrders');
+    const newWorkOrderRef = push(workOrdersRef);
+    
+    const workOrder = {
+        id: `WO-${Date.now()}`,
+        ...workOrderData,
+        createdAt: new Date().toISOString()
+    };
+    
+    await set(newWorkOrderRef, workOrder);
+    console.log('✅ Work order saved:', workOrder.id);
+    return workOrder.id;
+}
+
+// Update work order
+export async function updateWorkOrder(workOrderId, updates) {
+    if (!database) throw new Error('Database not initialized');
+    
+    // Find work order by ID
+    const workOrdersRef = ref(database, 'workOrders');
+    const snapshot = await get(workOrdersRef);
+    
+    let workOrderKey = null;
+    snapshot.forEach((childSnapshot) => {
+        if (childSnapshot.val().id === workOrderId) {
+            workOrderKey = childSnapshot.key;
         }
-        
-        console.log('📡 Work orders updated from Firebase:', workOrders.length);
     });
     
-    // Listen for violation changes
-    violationsRef.on('value', (snapshot) => {
+    if (!workOrderKey) throw new Error('Work order not found');
+    
+    const workOrderRef = ref(database, `workOrders/${workOrderKey}`);
+    await update(workOrderRef, {
+        ...updates,
+        updatedAt: new Date().toISOString()
+    });
+    
+    console.log('✅ Work order updated:', workOrderId);
+}
+
+// Delete work order
+export async function deleteWorkOrder(workOrderId) {
+    if (!database) throw new Error('Database not initialized');
+    
+    // Find work order by ID
+    const workOrdersRef = ref(database, 'workOrders');
+    const snapshot = await get(workOrdersRef);
+    
+    let workOrderKey = null;
+    snapshot.forEach((childSnapshot) => {
+        if (childSnapshot.val().id === workOrderId) {
+            workOrderKey = childSnapshot.key;
+        }
+    });
+    
+    if (!workOrderKey) throw new Error('Work order not found');
+    
+    const workOrderRef = ref(database, `workOrders/${workOrderKey}`);
+    await remove(workOrderRef);
+    
+    console.log('✅ Work order deleted:', workOrderId);
+}
+
+// ============================================================================
+// VIOLATIONS OPERATIONS
+// ============================================================================
+
+// Subscribe to violations real-time updates
+export function subscribeToViolations(callback) {
+    if (!database) {
+        console.error('Database not initialized');
+        return;
+    }
+    
+    const violationsRef = ref(database, 'violations');
+    
+    onValue(violationsRef, (snapshot) => {
         const violations = [];
         snapshot.forEach((childSnapshot) => {
             violations.push({
-                id: childSnapshot.key,
+                firebaseKey: childSnapshot.key,
                 ...childSnapshot.val()
             });
         });
         
-        if (typeof renderViolations === 'function') {
-            renderViolations(violations);
-        }
-        
-        console.log('📡 Violations updated from Firebase:', violations.length);
+        console.log('📡 Violations updated:', violations.length);
+        callback(violations);
     });
 }
 
-// CREATE - Add new ticket
-async function createTicketFirebase(ticketData) {
-    try {
-        const newTicketRef = ticketsRef.push();
-        const ticketId = 'TKT-' + String(Date.now()).slice(-5);
-        
-        const ticket = {
-            id: ticketId,
-            ...ticketData,
-            createdAt: firebase.database.ServerValue.TIMESTAMP,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            updates: []
-        };
-        
-        await newTicketRef.set(ticket);
-        console.log('✅ Ticket created:', ticketId);
-        
-        if (typeof showNotification === 'function') {
-            showNotification('Ticket created successfully!', 'success');
-        }
-        
-        return ticketId;
-    } catch (error) {
-        console.error('Error creating ticket:', error);
-        if (typeof showNotification === 'function') {
-            showNotification('Error creating ticket', 'error');
-        }
-        throw error;
-    }
-}
-
-// READ - Get all tickets
-async function getTicketsFirebase() {
-    try {
-        const snapshot = await ticketsRef.once('value');
-        const tickets = [];
-        
-        snapshot.forEach((childSnapshot) => {
-            tickets.push({
-                id: childSnapshot.key,
-                ...childSnapshot.val()
-            });
-        });
-        
-        return tickets;
-    } catch (error) {
-        console.error('Error getting tickets:', error);
-        return [];
-    }
-}
-
-// READ - Get single ticket
-async function getTicketFirebase(ticketId) {
-    try {
-        const snapshot = await ticketsRef.orderByChild('id').equalTo(ticketId).once('value');
-        let ticket = null;
-        
-        snapshot.forEach((childSnapshot) => {
-            ticket = {
-                firebaseKey: childSnapshot.key,
-                ...childSnapshot.val()
-            };
-        });
-        
-        return ticket;
-    } catch (error) {
-        console.error('Error getting ticket:', error);
-        return null;
-    }
-}
-
-// UPDATE - Update ticket
-async function updateTicketFirebase(ticketId, updates) {
-    try {
-        const ticket = await getTicketFirebase(ticketId);
-        if (!ticket) {
-            throw new Error('Ticket not found');
-        }
-        
-        const updateData = {
-            ...updates,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
-        };
-        
-        await database.ref('tickets/' + ticket.firebaseKey).update(updateData);
-        console.log('✅ Ticket updated:', ticketId);
-        
-        if (typeof showNotification === 'function') {
-            showNotification('Ticket updated successfully!', 'success');
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error updating ticket:', error);
-        if (typeof showNotification === 'function') {
-            showNotification('Error updating ticket', 'error');
-        }
-        throw error;
-    }
-}
-
-// UPDATE - Add comment/update to ticket
-async function addTicketUpdateFirebase(ticketId, updateText, userName) {
-    try {
-        const ticket = await getTicketFirebase(ticketId);
-        if (!ticket) {
-            throw new Error('Ticket not found');
-        }
-        
-        const updates = ticket.updates || [];
-        updates.push({
-            date: new Date().toISOString(),
-            user: userName,
-            text: updateText
-        });
-        
-        await database.ref('tickets/' + ticket.firebaseKey).update({
-            updates: updates,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
-        });
-        
-        console.log('✅ Update added to ticket:', ticketId);
-        
-        if (typeof showNotification === 'function') {
-            showNotification('Comment added successfully!', 'success');
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error adding update:', error);
-        if (typeof showNotification === 'function') {
-            showNotification('Error adding comment', 'error');
-        }
-        throw error;
-    }
-}
-
-// UPDATE - Change ticket status
-async function updateTicketStatusFirebase(ticketId, newStatus, userName) {
-    try {
-        const ticket = await getTicketFirebase(ticketId);
-        if (!ticket) {
-            throw new Error('Ticket not found');
-        }
-        
-        const updates = ticket.updates || [];
-        updates.push({
-            date: new Date().toISOString(),
-            user: userName,
-            text: `Status changed to ${newStatus.replace('-', ' ')}`
-        });
-        
-        await database.ref('tickets/' + ticket.firebaseKey).update({
-            status: newStatus,
-            updates: updates,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
-        });
-        
-        console.log('✅ Ticket status updated:', ticketId);
-        
-        if (typeof showNotification === 'function') {
-            showNotification('Status updated successfully!', 'success');
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error updating status:', error);
-        if (typeof showNotification === 'function') {
-            showNotification('Error updating status', 'error');
-        }
-        throw error;
-    }
-}
-
-// DELETE - Delete ticket
-async function deleteTicketFirebase(ticketId) {
-    try {
-        const ticket = await getTicketFirebase(ticketId);
-        if (!ticket) {
-            throw new Error('Ticket not found');
-        }
-        
-        await database.ref('tickets/' + ticket.firebaseKey).remove();
-        console.log('✅ Ticket deleted:', ticketId);
-        
-        if (typeof showNotification === 'function') {
-            showNotification('Ticket deleted successfully!', 'success');
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error deleting ticket:', error);
-        if (typeof showNotification === 'function') {
-            showNotification('Error deleting ticket', 'error');
-        }
-        throw error;
-    }
-}
-
-// Work Orders functions
-async function createWorkOrderFirebase(workOrderData) {
-    try {
-        const newRef = workOrdersRef.push();
-        const id = 'WO-' + String(Date.now()).slice(-5);
-        
-        await newRef.set({
-            id: id,
-            ...workOrderData,
-            createdAt: firebase.database.ServerValue.TIMESTAMP
-        });
-        
-        console.log('✅ Work order created:', id);
-        return id;
-    } catch (error) {
-        console.error('Error creating work order:', error);
-        throw error;
-    }
-}
-
-// Violations functions
-async function createViolationFirebase(violationData) {
-    try {
-        const newRef = violationsRef.push();
-        const id = 'VIO-' + String(Date.now()).slice(-5);
-        
-        await newRef.set({
-            id: id,
-            ...violationData,
-            createdAt: firebase.database.ServerValue.TIMESTAMP
-        });
-        
-        console.log('✅ Violation created:', id);
-        return id;
-    } catch (error) {
-        console.error('Error creating violation:', error);
-        throw error;
-    }
-}
-
-// Initialize Firebase when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🔥 Initializing Firebase for LJ Services Group...');
+// Save new violation
+export async function saveViolation(violationData) {
+    if (!database) throw new Error('Database not initialized');
     
-    // Wait for Firebase SDK to load
-    const checkFirebase = setInterval(() => {
-        if (typeof firebase !== 'undefined') {
-            clearInterval(checkFirebase);
-            initFirebase();
-        }
-    }, 100);
+    const violationsRef = ref(database, 'violations');
+    const newViolationRef = push(violationsRef);
     
-    // Timeout after 5 seconds
-    setTimeout(() => {
-        clearInterval(checkFirebase);
-        if (typeof firebase === 'undefined') {
-            console.error('❌ Firebase SDK failed to load');
-            alert('Firebase SDK failed to load. Check your internet connection.');
-        }
-    }, 5000);
-});
+    const violation = {
+        id: `VIO-${Date.now()}`,
+        ...violationData,
+        createdAt: new Date().toISOString()
+    };
+    
+    await set(newViolationRef, violation);
+    console.log('✅ Violation saved:', violation.id);
+    return violation.id;
+}
 
-console.log('✅ Firebase real-time module loaded for LJ Services Group');
+// Update violation
+export async function updateViolation(violationId, updates) {
+    if (!database) throw new Error('Database not initialized');
+    
+    // Find violation by ID
+    const violationsRef = ref(database, 'violations');
+    const snapshot = await get(violationsRef);
+    
+    let violationKey = null;
+    snapshot.forEach((childSnapshot) => {
+        if (childSnapshot.val().id === violationId) {
+            violationKey = childSnapshot.key;
+        }
+    });
+    
+    if (!violationKey) throw new Error('Violation not found');
+    
+    const violationRef = ref(database, `violations/${violationKey}`);
+    await update(violationRef, {
+        ...updates,
+        updatedAt: new Date().toISOString()
+    });
+    
+    console.log('✅ Violation updated:', violationId);
+}
+
+// Delete violation
+export async function deleteViolation(violationId) {
+    if (!database) throw new Error('Database not initialized');
+    
+    // Find violation by ID
+    const violationsRef = ref(database, 'violations');
+    const snapshot = await get(violationsRef);
+    
+    let violationKey = null;
+    snapshot.forEach((childSnapshot) => {
+        if (childSnapshot.val().id === violationId) {
+            violationKey = childSnapshot.key;
+        }
+    });
+    
+    if (!violationKey) throw new Error('Violation not found');
+    
+    const violationRef = ref(database, `violations/${violationKey}`);
+    await remove(violationRef);
+    
+    console.log('✅ Violation deleted:', violationId);
+}
+
+console.log('✅ Firebase real-time module loaded (using Firebase from index.html)');
