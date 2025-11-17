@@ -61,17 +61,23 @@ function initApp() {
 
 // Load settings from Firebase
 async function loadSettingsFromFirebase() {
-    if (typeof firebase === 'undefined' || !firebase.database) {
-        console.log('⏳ Waiting for Firebase...');
+    // ✅ Wait until a Firebase app actually exists
+    if (
+        typeof firebase === 'undefined' ||
+        !firebase.apps ||
+        !firebase.apps.length
+    ) {
+        console.log('⏳ Waiting for Firebase app...');
         setTimeout(loadSettingsFromFirebase, 500);
         return;
     }
-    
+
     try {
-        const settingsRef = firebase.database().ref('settings');
+        const db = firebase.database();
+        const settingsRef = db.ref('settings');
         const snapshot = await settingsRef.once('value');
         const settings = snapshot.val();
-        
+
         if (settings) {
             if (settings.associations) {
                 associations = settings.associations;
@@ -82,7 +88,7 @@ async function loadSettingsFromFirebase() {
                 populateStaffDropdowns();
             }
         } else {
-            // Initialize default settings
+            // Initialize default settings in Firebase the first time
             await settingsRef.set({
                 associations: associations,
                 staffMembers: staffMembers,
@@ -90,7 +96,7 @@ async function loadSettingsFromFirebase() {
                 violationRules: {}
             });
         }
-        
+
         console.log('✅ Settings loaded from Firebase');
     } catch (error) {
         console.error('Error loading settings:', error);
