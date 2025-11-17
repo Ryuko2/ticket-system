@@ -1,0 +1,143 @@
+/* ============================================
+   SIMPLE LJ ANIMATION STYLES
+   ============================================ */
+
+#loadingScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease;
+}
+
+.simple-logo {
+    text-align: center;
+}
+
+.logo-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.letter {
+    position: relative;
+    opacity: 0;
+    transform: translateY(50px);
+    animation: slideUp 0.8s ease forwards;
+}
+
+.letter-l {
+    animation-delay: 0.2s;
+}
+
+.letter-j {
+    animation-delay: 0.4s;
+}
+
+.letter svg {
+    overflow: visible;
+}
+
+.letter .line {
+    fill: none;
+    stroke: white;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: drawLine 1s ease forwards;
+}
+
+.letter-l .line {
+    animation-delay: 0.2s;
+}
+
+.letter-j .stem {
+    animation-delay: 0.4s;
+}
+
+/* j dot bouncing animation */
+.j-dot {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    animation: 
+        fadeIn 0.3s ease 0.6s forwards,
+        bounce 0.6s ease 0.9s infinite;
+}
+
+.company-name {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: white;
+    opacity: 0;
+    animation: fadeIn 0.5s ease 1.2s forwards;
+}
+
+.company-tagline {
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 10px;
+    opacity: 0;
+    animation: fadeIn 0.5s ease 1.5s forwards;
+}
+
+/* Animations */
+@keyframes slideUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes drawLine {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        transform: translateX(-50%) translateY(-15px);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .letter svg {
+        width: 80px;
+        height: 112px;
+    }
+    
+    .company-name {
+        font-size: 18px;
+    }
+    
+    .company-tagline {
+        font-size: 12px;
+    }
+}
