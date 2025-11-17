@@ -1,157 +1,148 @@
 /* ============================================
-   SIMPLE LJ ANIMATION STYLES
+   LJ SERVICES GROUP - LOADING ANIMATION
    ============================================ */
 
 #loadingScreen {
     position: fixed;
     inset: 0;
     z-index: 99999;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
-    justify-content: center;
     align-items: center;
-    transition: opacity 0.5s ease;
+    justify-content: center;
+    background: radial-gradient(circle at top left, #1e293b 0%, #020617 55%, #111827 100%);
+    animation: lj-bg-pulse 4s ease-in-out infinite alternate;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .simple-logo {
     text-align: center;
+    color: #f9fafb;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    animation: lj-logo-pop 0.7s ease-out both;
 }
 
 .logo-container {
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 30px;
+    gap: 2rem;
+    margin-bottom: 1rem;
 }
 
+/* L & J letters */
 .letter {
     position: relative;
-    opacity: 0;
-    transform: translateY(50px);
-    animation: slideUp 0.8s ease forwards;
-}
-
-.letter-l {
-    animation-delay: 0.2s;
-}
-
-.letter-j {
-    animation-delay: 0.4s;
 }
 
 .letter svg {
-    overflow: visible;
-}
-
-.letter .line {
+    width: 90px;
+    height: 130px;
+    stroke: #e5e7eb;
     fill: none;
-    stroke: white;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-dasharray: 200;
-    stroke-dashoffset: 200;
-    animation: drawLine 1s ease forwards;
+    stroke-dasharray: 260;
+    stroke-dashoffset: 260;
+    animation: lj-stroke-draw 1.4s ease-out forwards;
 }
 
-.letter-l .line {
-    animation-delay: 0.2s;
-}
-
-.letter-j .stem {
-    animation-delay: 0.4s;
-}
-
-/* j dot bouncing animation */
+/* j dot */
 .j-dot {
     position: absolute;
-    width: 20px;
-    height: 20px;
-    background: white;
-    border-radius: 50%;
-    top: 10px;
     left: 50%;
     transform: translateX(-50%);
-    opacity: 0;
-    animation: 
-        fadeIn 0.3s ease 0.6s forwards,
-        bounce 0.6s ease 0.9s infinite;
+    bottom: 110px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+    animation: lj-dot-bounce 1.1s ease-in-out infinite;
 }
 
+/* Text under logo */
 .company-name {
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: 4px;
-    color: white;
+    font-size: 1.4rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
     opacity: 0;
-    animation: fadeIn 0.5s ease 1.2s forwards;
+    animation: lj-fade-up 0.6s ease-out 0.6s forwards;
 }
 
 .company-tagline {
-    font-size: 14px;
-    font-weight: 400;
-    letter-spacing: 2px;
-    color: rgba(255, 255, 255, 0.8);
-    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
     opacity: 0;
-    animation: fadeIn 0.5s ease 1.5s forwards;
+    animation: lj-fade-up 0.6s ease-out 0.9s forwards;
 }
 
-/* Animations */
-@keyframes slideUp {
+/* When JS hides it */
+#loadingScreen[data-hidden="true"] {
+    display: none !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+}
+
+/* ============================================
+   KEYFRAMES
+   ============================================ */
+
+@keyframes lj-bg-pulse {
+    0% {
+        background-position: 0% 0%;
+        filter: saturate(1);
+    }
+    100% {
+        background-position: 100% 100%;
+        filter: saturate(1.2);
+    }
+}
+
+@keyframes lj-logo-pop {
+    from {
+        transform: translateY(18px) scale(0.92);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes lj-stroke-draw {
+    0% {
+        stroke-dashoffset: 260;
+        opacity: 0;
+    }
+    30% {
+        opacity: 1;
+    }
+    100% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+    }
+}
+
+@keyframes lj-dot-bounce {
+    0%, 100% {
+        transform: translate(-50%, 0);
+    }
+    50% {
+        transform: translate(-50%, -10px);
+    }
+}
+
+@keyframes lj-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
     to {
         opacity: 1;
         transform: translateY(0);
     }
-}
-
-@keyframes drawLine {
-    to {
-        stroke-dashoffset: 0;
-    }
-}
-
-@keyframes fadeIn {
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes bounce {
-    0%, 100% {
-        transform: translateX(-50%) translateY(0);
-    }
-    50% {
-        transform: translateX(-50%) translateY(-15px);
-    }
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .letter svg {
-        width: 80px;
-        height: 112px;
-    }
-    
-    .company-name {
-        font-size: 18px;
-    }
-    
-    .company-tagline {
-        font-size: 12px;
-    }
-}
-#loadingScreen {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    background: rgba(15, 23, 42, 0.65); /* dark translucent overlay */
-}
-
-#loadingScreen[data-hidden="true"] {
-    display: none !important;
-    pointer-events: none !important;
 }
