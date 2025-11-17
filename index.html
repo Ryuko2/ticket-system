@@ -5,13 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LJ Services Group - Professional Ticketing System</title>
     
-    <!-- Favicon -->
+    <!-- Favicon - Company Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
-    
-    <!-- Firebase SDK - Real-time Database -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     
     <!-- Normalize CSS -->
     <link rel="stylesheet" href="https://unpkg.com/normalize.css">
@@ -19,37 +15,14 @@
     <!-- Main Styles -->
     <link rel="stylesheet" href="styles-professional.css">
     <link rel="stylesheet" href="dark-mode.css">
-    <link rel="stylesheet" href="simple-lj-animation.css">
-    <link rel="stylesheet" href="settings-styles.css">
     
     <!-- MSAL Library -->
     <script src="https://alcdn.msauth.net/browser/2.14.2/js/msal-browser.min.js"></script>
+    
+    <!-- Dropbox -->
+    <script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="gazrj3d6rgyf6eb"></script>
 </head>
 <body>
-    <!-- ==================== SIMPLE LJ LOADING ANIMATION ==================== -->
-    <div id="loadingScreen">
-        <div class="simple-logo">
-            <div class="logo-container">
-                <!-- L -->
-                <div class="letter letter-l">
-                    <svg viewBox="0 0 100 140" width="100" height="140">
-                        <path class="line" d="M20 10v110h60" stroke-width="15"/>
-                    </svg>
-                </div>
-                
-                <!-- j with bouncing dot -->
-                <div class="letter letter-j">
-                    <svg viewBox="0 0 100 140" width="100" height="140">
-                        <path class="line stem" d="M50 40v60c0 15-10 25-25 25" stroke-width="15"/>
-                    </svg>
-                    <div class="j-dot"></div>
-                </div>
-            </div>
-            <div class="company-name">LJ SERVICES GROUP</div>
-            <div class="company-tagline">Professional Property Management</div>
-        </div>
-    </div>
-
     <!-- ==================== HEADER ==================== -->
     <header class="header">
         <div class="header-left">
@@ -74,14 +47,14 @@
             </label>
             
             <span class="user-email" id="userEmail">Not logged in</span>
-            <span class="sync-status" id="syncStatus">🔥 Firebase Connected</span>
+            <span class="sync-status" id="syncStatus"></span>
             <button class="logout-btn" id="logoutButton" style="display: none;">Logout</button>
         </div>
     </header>
 
     <!-- ==================== LAYOUT ==================== -->
     <div class="layout">
-        <!-- ==================== SIDEBAR ==================== -->
+        <!-- ==================== ANIMATED SIDEBAR ==================== -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
@@ -152,13 +125,16 @@
             </nav>
 
             <div class="sidebar-footer">
-                <div class="firebase-status">
-                    <span style="font-size: 12px; color: var(--text-secondary);">🔥 Real-time sync active</span>
-                </div>
+                <button class="sidebar-btn" id="syncDropboxBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                    <span>Auto-Sync Active</span>
+                </button>
             </div>
         </aside>
 
-        <!-- Sidebar Overlay -->
+        <!-- Sidebar Overlay for Mobile -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
         <!-- ==================== MAIN CONTENT ==================== -->
@@ -171,7 +147,6 @@
                             <img src="favicon.png" alt="LJ Services Group" class="login-logo">
                             <h1>LJ Services Group</h1>
                             <p>Professional Property Management</p>
-                            <p style="font-size: 12px; color: #666; margin-top: 10px;">🔥 Real-time multi-device sync enabled</p>
                         </div>
                         <div class="login-options">
                             <button class="login-btn primary" id="loginButton">
@@ -179,6 +154,12 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
                                 </svg>
                                 <span>Microsoft Login</span>
+                            </button>
+                            <button class="login-btn secondary" id="dropboxLoginBtn">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                                </svg>
+                                <span>Dropbox Login (Auto-Sync)</span>
                             </button>
                             <button class="login-btn tertiary" id="demoLoginBtn">
                                 <span>Demo Mode</span>
@@ -436,24 +417,20 @@
         </div>
     </div>
 
-    <!-- ==================== SCRIPTS ==================== -->
+    <!-- Scripts -->
     <!-- jsPDF Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <!-- Core Features -->
-    <script src="simple-lj-animation.js"></script>
     <script src="dark-mode-toggle.js"></script>
     <script src="sidebar-professional.js"></script>
     <script src="violations-professional.js"></script>
     <script src="work-orders.js"></script>
     <script src="pdf-generator.js"></script>
-    <script src="settings-page.js"></script>
-    
-    <!-- Firebase Integration - Load BEFORE app-professional.js -->
+    <!-- Firebase Real-time Sync -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="firebase-realtime.js"></script>
-    <script src="ticket-interactions-firebase.js"></script>
-    
-    <!-- Main App - MUST BE LAST -->
-    <script src="app-professional-firebase.js"></script>
+    <script src="app-professional.js"></script>
 </body>
 </html>
