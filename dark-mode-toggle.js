@@ -1,63 +1,42 @@
 // ============================================
-// DARK/LIGHT MODE TOGGLE
-// Beautiful animated theme switcher
+// DARK MODE TOGGLE
+// Safe version that checks if elements exist
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    const toggleInput = document.getElementById('themeToggle');
-    const rootElement = document.documentElement;
+function initDarkMode() {
+    const toggle = document.getElementById('darkModeToggle');
     
-    // Apply theme function
-    const applyTheme = (isDark) => {
-        if (isDark) {
-            rootElement.setAttribute('data-theme', 'dark');
+    // If toggle doesn't exist, skip dark mode initialization
+    if (!toggle) {
+        console.log('ℹ️ Dark mode toggle not found, skipping...');
+        return;
+    }
+    
+    // Check for saved theme preference or default to light mode
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    
+    if (currentTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        toggle.checked = true;
+    }
+    
+    // Listen for toggle changes
+    toggle.addEventListener('change', function() {
+        if (this.checked) {
+            document.documentElement.classList.add('dark');
             localStorage.setItem('theme', 'dark');
         } else {
-            rootElement.setAttribute('data-theme', 'light');
+            document.documentElement.classList.remove('dark');
             localStorage.setItem('theme', 'light');
         }
-    };
-    
-    // Check saved theme or system preference
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-    
-    toggleInput.checked = isDark;
-    applyTheme(isDark);
-    
-    // Toggle event with animation
-    toggleInput.addEventListener('change', (event) => {
-        const isDark = toggleInput.checked;
-        
-        // Get toggle position for animation
-        let x = window.innerWidth / 2;
-        let y = 40; // Header height
-        
-        const toggleElement = document.querySelector('.theme-toggle');
-        if (toggleElement) {
-            const rect = toggleElement.getBoundingClientRect();
-            x = rect.left + rect.width / 2;
-            y = rect.top + rect.height / 2;
-        }
-        
-        // Use View Transition API if supported
-        if (!document.startViewTransition) {
-            applyTheme(isDark);
-            return;
-        }
-        
-        const transition = document.startViewTransition(() => {
-            applyTheme(isDark);
-        });
-        
-        transition.ready.then(() => {
-            rootElement.style.setProperty('--x', `${x}px`);
-            rootElement.style.setProperty('--y', `${y}px`);
-        }).catch(error => {
-            console.error("Theme transition error:", error);
-        });
     });
     
     console.log('✅ Dark mode toggle initialized');
-});
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDarkMode);
+} else {
+    initDarkMode();
+}
