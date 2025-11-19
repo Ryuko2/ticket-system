@@ -1416,8 +1416,327 @@ function showToast(message, type = "info") {
 
 console.log("✅ LJ Services CRM with Bulk Actions loaded successfully!");
 // ============================================
-// REGISTRATIONS DASHBOARD
+// REGISTRATIONS DASHBOARD ADDITION
+// Add this to your existing app.js
 // ============================================
 
-// Copy ALL the code from registrations_module.js here
+// Add to LJ_STATE object (around line 8-25):
+const REGISTRATION_STATE = {
+  vehicles: [],
+  boats: [],
+  pets: [],
+  loading: false,
+  lastUpdate: null,
+  sheetConfigs: {
+    vehicles: {
+      sheetId: '1VmOzpbum_cs57nSFVpeBBC5VPTW9y74z_ocE8fvuA04',
+      gid: '0',
+      name: 'Vehicle Registration'
+    },
+    boats: {
+      sheetId: '1ftrWNofz2v0ZxB0y0QKioIsN9gb9dKvr63zDpM-4xSA',
+      gid: '0',
+      name: 'Boat Registration'
+    },
+    pets: {
+      sheetId: '1msMnNnKMz-RkT_3Tf-jocpoA5Nf8tuJz8W8wn42avps',
+      gid: '0',
+      name: 'Pet Registration'
+    }
+  }
+};
+
+// Add to initDashboardNavigation() function:
+function initRegistrationsDashboard() {
+  const registrationsBtn = document.querySelector('[data-dashboard="registrations"]');
+  if (registrationsBtn) {
+    registrationsBtn.addEventListener('click', () => {
+      loadRegistrationsData();
+    });
+  }
+  console.log("✅ Registrations dashboard initialized");
+}
+
+// Fetch data from Google Sheets
+async function fetchSheetData(config) {
+  const url = `https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv&gid=${config.gid}`;
+  
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const csvText = await response.text();
+    return parseCSV(csvText);
+  } catch (error) {
+    console.error(`Error fetching ${config.name}:`, error);
+    return [];
+  }
+}
+
+// Parse CSV data
+function parseCSV(csvText) {
+  const lines = csvText.split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  const data = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '') continue;
+    
+    const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+    const row = {};
+    
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+    
+    data.push(row);
+  }
+  
+  return data;
+}
+
+// Load all registration data
+async function loadRegistrationsData() {
+  REGISTRATION_STATE.loading = true;
+  showRegistrationsLoading();
+  
+  try {
+    const [vehicles, boats, pets] = await Promise.all([
+      fetchSheetData(REGISTRATION_STATE.sheetConfigs.vehicles),
+      fetchSheetData(REGISTRATION_STATE.sheetConfigs.boats),
+      fetchSheetData(REGISTRATION_STATE.sheetConfigs.pets)
+    ]);
+    
+    REGISTRATION_STATE.vehicles = vehicles;
+    REGISTRATION_STATE.boats = boats;
+    REGISTRATION_STATE.pets = pets;
+    REGISTRATION_STATE.lastUpdate = new Date();
+    
+    displayRegistrationsOverview();
+    hideRegistrationsLoading();
+  } catch (error) {
+    console.error('Error loading registrations:', error);
+    showRegistrationsError(error.message);
+  } finally {
+    REGISTRATION_STATE.loading = false;
+  }
+}
+
+// Display registrations overview
+function displayRegistrationsOverview() {
+  const container = document.getElementById('registrationsContent');
+  if (!container) return;
+  
+  const vehicleCount = REGISTRATION_STATE.vehicles.length;
+  const boatCount = REGISTRATION_STATE.boats.length;
+  const petCount = REGISTRATION_STATE.pets.length;
+  
+  container.innerHTML = `
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <!-- Vehicles -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="showRegistrationsTab('vehicles')">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-4xl">🚗</div>
+          <div class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold">VEHICLES</div>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-900 mb-1">${vehicleCount}</h3>
+        <p class="text-sm text-slate-600">Total Registrations</p>
+      </div>
+      
+      <!-- Boats -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="showRegistrationsTab('boats')">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-4xl">🚤</div>
+          <div class="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-xs font-bold">BOATS</div>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-900 mb-1">${boatCount}</h3>
+        <p class="text-sm text-slate-600">Total Registrations</p>
+      </div>
+      
+      <!-- Pets -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="showRegistrationsTab('pets')">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-4xl">🐾</div>
+          <div class="bg-pink-100 text-pink-800 px-3 py-1 rounded-full text-xs font-bold">PETS</div>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-900 mb-1">${petCount}</h3>
+        <p class="text-sm text-slate-600">Total Registrations</p>
+      </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
+      <div class="border-b border-slate-200 px-4">
+        <nav class="flex gap-4">
+          <button onclick="showRegistrationsTab('vehicles')" id="regTabVehicles" class="py-3 px-4 text-sm font-medium border-b-2 border-indigo-500 text-indigo-600">
+            Vehicles (${vehicleCount})
+          </button>
+          <button onclick="showRegistrationsTab('boats')" id="regTabBoats" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900">
+            Boats (${boatCount})
+          </button>
+          <button onclick="showRegistrationsTab('pets')" id="regTabPets" class="py-3 px-4 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900">
+            Pets (${petCount})
+          </button>
+        </nav>
+      </div>
+    </div>
+    
+    <!-- Content Areas -->
+    <div id="vehiclesRegContent">${renderVehiclesTable()}</div>
+    <div id="boatsRegContent" class="hidden">${renderBoatsTable()}</div>
+    <div id="petsRegContent" class="hidden">${renderPetsTable()}</div>
+  `;
+}
+
+// Show registrations tab
+function showRegistrationsTab(tab) {
+  // Update tabs
+  document.querySelectorAll('[id^="regTab"]').forEach(btn => {
+    btn.classList.remove('border-indigo-500', 'text-indigo-600');
+    btn.classList.add('border-transparent', 'text-slate-600');
+  });
+  
+  const activeTab = document.getElementById(`regTab${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+  if (activeTab) {
+    activeTab.classList.add('border-indigo-500', 'text-indigo-600');
+    activeTab.classList.remove('border-transparent', 'text-slate-600');
+  }
+  
+  // Show/hide content
+  document.getElementById('vehiclesRegContent').classList.toggle('hidden', tab !== 'vehicles');
+  document.getElementById('boatsRegContent').classList.toggle('hidden', tab !== 'boats');
+  document.getElementById('petsRegContent').classList.toggle('hidden', tab !== 'pets');
+}
+
+// Render vehicles table
+function renderVehiclesTable() {
+  if (REGISTRATION_STATE.vehicles.length === 0) {
+    return '<div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">No vehicle registrations found</div>';
+  }
+  
+  let html = '<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"><table class="w-full"><thead class="bg-slate-50 border-b border-slate-200"><tr>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Timestamp</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Unit</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Resident</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Association</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Vehicles</th>';
+  html += '</tr></thead><tbody class="divide-y divide-slate-200">';
+  
+  REGISTRATION_STATE.vehicles.forEach(row => {
+    const vehicles = [];
+    if (row['Vehicle 1 Make']) vehicles.push(`${row['Vehicle 1 Make']} ${row['Vehicle 1 Model']}`);
+    if (row['Vehicle 2 Make']) vehicles.push(`${row['Vehicle 2 Make']} ${row['Vehicle 2 Model']}`);
+    if (row['Vehicle 3 Make']) vehicles.push(`${row['Vehicle 3 Make']} ${row['Vehicle 3 Model']}`);
+    
+    html += `<tr class="hover:bg-slate-50">`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatDate(row['Timestamp'])}</td>`;
+    html += `<td class="px-6 py-4 text-sm font-medium text-slate-900">${row['Unit Number']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Resident Name']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Association Name']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-900">${vehicles.join(', ') || 'N/A'}</td>`;
+    html += `</tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// Render boats table
+function renderBoatsTable() {
+  if (REGISTRATION_STATE.boats.length === 0) {
+    return '<div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">No boat registrations found</div>';
+  }
+  
+  let html = '<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"><table class="w-full"><thead class="bg-slate-50 border-b border-slate-200"><tr>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Timestamp</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Unit</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Owner</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Association</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Boat</th>';
+  html += '</tr></thead><tbody class="divide-y divide-slate-200">';
+  
+  REGISTRATION_STATE.boats.forEach(row => {
+    const boat = `${row['Manufacturer']} ${row['Model']} (${row['Year']})`;
+    
+    html += `<tr class="hover:bg-slate-50">`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatDate(row['Timestamp'])}</td>`;
+    html += `<td class="px-6 py-4 text-sm font-medium text-slate-900">${row['Unit Number']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Property Owner']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Association Name']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-900">${boat}</td>`;
+    html += `</tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// Render pets table
+function renderPetsTable() {
+  if (REGISTRATION_STATE.pets.length === 0) {
+    return '<div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">No pet registrations found</div>';
+  }
+  
+  let html = '<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"><table class="w-full"><thead class="bg-slate-50 border-b border-slate-200"><tr>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Timestamp</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Unit</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Owner</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Association</th>';
+  html += '<th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Pet</th>';
+  html += '</tr></thead><tbody class="divide-y divide-slate-200">';
+  
+  REGISTRATION_STATE.pets.forEach(row => {
+    const petName = row['Animal Name'] || row['Pet Name'] || 'N/A';
+    const petBreed = row['Breed'] || row['Breed Description'] || '';
+    
+    html += `<tr class="hover:bg-slate-50">`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatDate(row['Timestamp'])}</td>`;
+    html += `<td class="px-6 py-4 text-sm font-medium text-slate-900">${row['Unit Number']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Owner Name']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Association Name']}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-900">${petName} ${petBreed ? `(${petBreed})` : ''}</td>`;
+    html += `</tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// Helper functions
+function formatDate(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  return date.toLocaleString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function showRegistrationsLoading() {
+  const container = document.getElementById('registrationsContent');
+  if (container) {
+    container.innerHTML = '<div class="flex items-center justify-center py-20"><div class="text-center"><div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div><p class="mt-4 text-sm text-slate-600">Loading registration data...</p></div></div>';
+  }
+}
+
+function hideRegistrationsLoading() {
+  // Content is replaced by displayRegistrationsOverview()
+}
+
+function showRegistrationsError(message) {
+  const container = document.getElementById('registrationsContent');
+  if (container) {
+    container.innerHTML = `<div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center"><div class="text-red-800 font-medium mb-2">Error Loading Data</div><div class="text-sm text-red-600">${message}</div></div>`;
+  }
+}
+
+// Export function to global scope
+window.showRegistrationsTab = showRegistrationsTab;
+
+console.log("✅ Registrations module loaded");
 
