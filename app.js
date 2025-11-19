@@ -1,0 +1,1355 @@
+// ============================================
+// LJ SERVICES GROUP - PROFESSIONAL CRM
+// Enhanced with Bulk Actions & Advanced Features
+// ============================================
+
+console.log("🚀 Loading Professional CRM with Bulk Actions...");
+
+const LJ_STATE = {
+  db: null,
+  tickets: {},
+  workOrders: {},
+  violations: {},
+  currentItem: null,
+  searchQuery: "",
+  filterStatus: "all",
+  attachments: {},
+  emailConfig: {
+    notifyOnComment: true,
+    notifyOnStatusChange: true,
+    notifyEmail: "",
+  },
+  // Bulk Actions State
+  selectedItems: new Set(),
+  bulkActionsActive: false,
+  associations: [
+    "Aquarius at Brickell",
+    "Bay Point Club",
+    "Brickell Townhouse",
+    "Bristol Tower",
+    "Carriage Club North",
+    "Carriage Club South",
+    "Carriage Club West",
+    "Casa Grande",
+    "Colonnade on Williams Island",
+    "Commodore Plaza West",
+    "Cricket Club",
+    "Eldorado Towers",
+    "Flamingo South Beach",
+    "Hamptons East",
+    "Marenas Beach Resort",
+    "Renaissance Towers",
+    "Richmond Park",
+    "Turnberry Village South",
+    "Winston Towers"
+  ]
+};
+
+// ---------- Initialization ----------
+
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    initFirebaseBinding();
+    initUserProfile();
+    initDashboardNavigation();
+    initDrawers();
+    initModal();
+    initSearch();
+    initFilters();
+    initFileUpload();
+    initExport();
+    initBulkActions();
+    initRealtimeListeners();
+    initLogoutButton();
+    console.log("✅ Professional CRM initialized with Bulk Actions!");
+  } catch (err) {
+    console.error("❌ Error initializing app:", err);
+  }
+});
+
+function initFirebaseBinding() {
+  if (!window.firebase || !firebase.apps.length) {
+    console.error("Firebase is not initialized.");
+    return;
+  }
+  LJ_STATE.db = firebase.database();
+  console.log("🔥 Firebase ready:", LJ_STATE.db.ref().toString());
+
+  const dbUrlLabel = document.getElementById("dbUrlLabel");
+  if (dbUrlLabel && firebase.apps[0].options.databaseURL) {
+    dbUrlLabel.textContent = firebase.apps[0].options.databaseURL;
+  }
+}
+
+function initUserProfile() {
+  const nameEl = document.getElementById("userName");
+  const emailEl = document.getElementById("userEmail");
+  const user = window.currentUser || { name: "Kevin R", email: "kevinr@ljservicesgroup.com" };
+  
+  if (nameEl) nameEl.textContent = user.name || "User";
+  if (emailEl) emailEl.textContent = user.email || "";
+  console.log("✅ User:", user.email);
+}
+
+function initLogoutButton() {
+  const btn = document.getElementById("logoutBtn");
+  if (btn) {
+    btn.addEventListener("click", () => alert("Logout logic here"));
+  }
+}
+
+// ---------- Dashboard Navigation ----------
+
+function initDashboardNavigation() {
+  const tabButtons = document.querySelectorAll(".dashboard-tab");
+  const views = document.querySelectorAll("[data-dashboard-view]");
+  const mobileSelect = document.getElementById("mobileDashboardSelect");
+  const titleEl = document.getElementById("dashboardTitle");
+  const subtitleEl = document.getElementById("dashboardSubtitle");
+
+  const LABELS = {
+    main: { title: "Overview", subtitle: "High-level activity across all items." },
+    tickets: { title: "Tickets Dashboard", subtitle: "General tickets and internal tasks." },
+    workOrders: { title: "Work Orders Dashboard", subtitle: "Vendor work and maintenance." },
+    violations: { title: "Violations Dashboard", subtitle: "CC&R enforcement." },
+  };
+
+  function setDashboard(id) {
+    tabButtons.forEach((btn) => {
+      const isActive = btn.dataset.dashboard === id;
+      btn.classList.toggle("bg-indigo-50", isActive);
+      btn.classList.toggle("text-indigo-700", isActive);
+      btn.classList.toggle("text-slate-600", !isActive);
+    });
+
+    views.forEach((view) => {
+      view.classList.toggle("hidden", view.dataset.dashboardView !== id);
+    });
+
+    if (titleEl && LABELS[id]) {
+      titleEl.textContent = LABELS[id].title;
+      subtitleEl.textContent = LABELS[id].subtitle;
+    }
+
+    if (mobileSelect) mobileSelect.value = id;
+    
+    // Clear bulk selections when switching dashboards
+    clearBulkSelection();
+    renderCurrentView();
+  }
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => setDashboard(btn.dataset.dashboard));
+  });
+
+  if (mobileSelect) {
+    mobileSelect.addEventListener("change", (e) => setDashboard(e.target.value));
+  }
+
+  setDashboard("main");
+}
+
+// ---------- Drawers (Ticket, Work Order, Violation) ----------
+
+function initDrawers() {
+  // Populate associations
+  populateAssociationSelects();
+
+  // Open drawer buttons
+  document.querySelectorAll("[data-open-drawer]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const drawerType = btn.dataset.openDrawer;
+      openDrawer(`drawer${capitalize(drawerType)}`);
+    });
+  });
+
+  // Form submissions
+  document.getElementById("ticketForm").addEventListener("submit", handleCreateTicket);
+  document.getElementById("workOrderForm").addEventListener("submit", handleCreateWorkOrder);
+  document.getElementById("violationForm").addEventListener("submit", handleCreateViolation);
+}
+
+function populateAssociationSelects() {
+  const selects = [
+    ...document.querySelectorAll("#ticketForm select[name='association']"),
+    ...document.querySelectorAll("#workOrderForm select[name='association']"),
+    ...document.querySelectorAll("#violationForm select[name='association']"),
+  ];
+
+  selects.forEach(select => {
+    select.innerHTML = '<option value="">Select...</option>';
+    LJ_STATE.associations.forEach(assoc => {
+      const opt = document.createElement("option");
+      opt.value = assoc;
+      opt.textContent = assoc;
+      select.appendChild(opt);
+    });
+  });
+
+  // Also populate bulk association select
+  const bulkSelect = document.getElementById("bulkAssociationSelect");
+  if (bulkSelect) {
+    bulkSelect.innerHTML = '<option value="">Change Association...</option>';
+    LJ_STATE.associations.forEach(assoc => {
+      const opt = document.createElement("option");
+      opt.value = assoc;
+      opt.textContent = assoc;
+      bulkSelect.appendChild(opt);
+    });
+  }
+}
+
+function openDrawer(id) {
+  const drawer = document.getElementById(id);
+  if (!drawer) return;
+  drawer.style.display = "block";
+  setTimeout(() => {
+    const content = drawer.querySelector(".drawer-content");
+    if (content) {
+      content.classList.remove("drawer-enter");
+      content.classList.add("drawer-open");
+    }
+  }, 10);
+}
+
+function closeDrawer(id) {
+  const drawer = document.getElementById(id);
+  if (!drawer) return;
+  const content = drawer.querySelector(".drawer-content");
+  if (content) {
+    content.classList.remove("drawer-open");
+    content.classList.add("drawer-enter");
+  }
+  setTimeout(() => {
+    drawer.style.display = "none";
+  }, 200);
+}
+
+// Make closeDrawer global for onclick
+window.closeDrawer = closeDrawer;
+
+function handleCreateTicket(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    type: "ticket",
+    title: form.title.value,
+    association: form.association.value,
+    status: form.status.value,
+    priority: form.priority.value,
+    description: form.description.value || "",
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    referenceNumber: generateReferenceNumber("TKT"),
+  };
+
+  LJ_STATE.db.ref("tickets").push(data)
+    .then(() => {
+      showToast("Ticket created successfully!", "success");
+      form.reset();
+      closeDrawer("drawerTicket");
+    })
+    .catch(err => {
+      console.error("Error creating ticket:", err);
+      showToast("Error creating ticket", "error");
+    });
+}
+
+function handleCreateWorkOrder(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    type: "workOrder",
+    title: form.title.value,
+    association: form.association.value,
+    vendor: form.vendor.value,
+    estimatedCost: form.estimatedCost.value ? parseFloat(form.estimatedCost.value) : 0,
+    status: form.status.value,
+    description: form.description.value || "",
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    referenceNumber: generateReferenceNumber("WO"),
+  };
+
+  LJ_STATE.db.ref("workOrders").push(data)
+    .then(() => {
+      showToast("Work Order created successfully!", "success");
+      form.reset();
+      closeDrawer("drawerWorkOrder");
+    })
+    .catch(err => {
+      console.error("Error creating work order:", err);
+      showToast("Error creating work order", "error");
+    });
+}
+
+function handleCreateViolation(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    type: "violation",
+    title: form.title.value,
+    association: form.association.value,
+    ruleBroken: form.ruleBroken.value,
+    noticeStep: form.noticeStep.value,
+    status: form.status.value,
+    description: form.description.value || "",
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    referenceNumber: generateReferenceNumber("VIO"),
+  };
+
+  LJ_STATE.db.ref("violations").push(data)
+    .then(() => {
+      showToast("Violation created successfully!", "success");
+      form.reset();
+      closeDrawer("drawerViolation");
+    })
+    .catch(err => {
+      console.error("Error creating violation:", err);
+      showToast("Error creating violation", "error");
+    });
+}
+
+function generateReferenceNumber(prefix) {
+  const timestamp = Date.now().toString().slice(-6);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+  return `${prefix}-${timestamp}${random}`;
+}
+
+// ---------- Modal ----------
+
+function initModal() {
+  const closeBtn = document.getElementById("closeItemBtn");
+  const deleteBtn = document.getElementById("deleteItemBtn");
+  const exportBtn = document.getElementById("exportCsvBtn");
+  const commentForm = document.getElementById("commentForm");
+
+  if (closeBtn) closeBtn.addEventListener("click", handleCloseItem);
+  if (deleteBtn) deleteBtn.addEventListener("click", handleDeleteItem);
+  if (exportBtn) exportBtn.addEventListener("click", handleExportItem);
+  if (commentForm) commentForm.addEventListener("submit", handleAddComment);
+}
+
+function openModal(itemType, itemKey) {
+  const modal = document.getElementById("itemModal");
+  if (!modal) return;
+
+  let item;
+  if (itemType === "ticket") item = LJ_STATE.tickets[itemKey];
+  else if (itemType === "workOrder") item = LJ_STATE.workOrders[itemKey];
+  else if (itemType === "violation") item = LJ_STATE.violations[itemKey];
+
+  if (!item) return;
+
+  LJ_STATE.currentItem = { type: itemType, key: itemKey, data: item };
+
+  // Update modal content
+  document.getElementById("modalTitle").textContent = item.title || "N/A";
+  document.getElementById("modalReferenceNumber").textContent = item.referenceNumber || "N/A";
+  document.getElementById("modalAssociation").textContent = item.association || "N/A";
+  document.getElementById("modalCreated").textContent = formatDate(item.created);
+  document.getElementById("modalUpdated").textContent = formatDate(item.updated);
+  document.getElementById("modalDescription").textContent = item.description || "No description provided";
+
+  // Status badge
+  const statusEl = document.getElementById("modalStatus");
+  statusEl.innerHTML = getStatusBadge(item.status);
+
+  // Type-specific sections
+  const vendorSection = document.getElementById("modalVendorSection");
+  const violationSection = document.getElementById("modalViolationSection");
+  
+  vendorSection.classList.add("hidden");
+  violationSection.classList.add("hidden");
+
+  if (itemType === "workOrder") {
+    vendorSection.classList.remove("hidden");
+    document.getElementById("modalVendor").textContent = item.vendor || "N/A";
+    document.getElementById("modalEstimatedCost").textContent = item.estimatedCost 
+      ? `$${parseFloat(item.estimatedCost).toLocaleString()}` 
+      : "N/A";
+  } else if (itemType === "violation") {
+    violationSection.classList.remove("hidden");
+    document.getElementById("modalRuleBroken").textContent = item.ruleBroken || "N/A";
+    document.getElementById("modalNoticeStep").textContent = item.noticeStep || "N/A";
+  }
+
+  // Type icon
+  const iconEl = document.getElementById("modalTypeIcon");
+  if (itemType === "ticket") {
+    iconEl.textContent = "T";
+    iconEl.className = "inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white text-sm font-semibold";
+  } else if (itemType === "workOrder") {
+    iconEl.textContent = "WO";
+    iconEl.className = "inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-600 text-white text-sm font-semibold";
+  } else {
+    iconEl.textContent = "V";
+    iconEl.className = "inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-600 text-white text-sm font-semibold";
+  }
+
+  // Load comments and attachments
+  loadComments(itemType, itemKey);
+  loadAttachments(itemType, itemKey);
+  loadHistory(itemType, itemKey);
+
+  // Show modal
+  modal.style.display = "block";
+  setTimeout(() => {
+    const content = modal.querySelector(".modal-content");
+    if (content) {
+      content.classList.remove("modal-enter");
+      content.classList.add("modal-open");
+    }
+  }, 10);
+}
+
+function closeModal() {
+  const modal = document.getElementById("itemModal");
+  if (!modal) return;
+  const content = modal.querySelector(".modal-content");
+  if (content) {
+    content.classList.remove("modal-open");
+    content.classList.add("modal-enter");
+  }
+  setTimeout(() => {
+    modal.style.display = "none";
+    LJ_STATE.currentItem = null;
+  }, 200);
+}
+
+// Make closeModal global
+window.closeModal = closeModal;
+
+function handleCloseItem() {
+  if (!LJ_STATE.currentItem) return;
+  
+  if (confirm("Mark this item as closed?")) {
+    const { type, key } = LJ_STATE.currentItem;
+    const path = type === "ticket" ? "tickets" : type === "workOrder" ? "workOrders" : "violations";
+    
+    LJ_STATE.db.ref(`${path}/${key}/status`).set("closed")
+      .then(() => {
+        showToast("Item marked as closed", "success");
+        closeModal();
+      })
+      .catch(err => {
+        console.error("Error closing item:", err);
+        showToast("Error closing item", "error");
+      });
+  }
+}
+
+function handleDeleteItem() {
+  if (!LJ_STATE.currentItem) return;
+  
+  if (confirm("Are you sure you want to delete this item? This action cannot be undone.")) {
+    const { type, key } = LJ_STATE.currentItem;
+    const path = type === "ticket" ? "tickets" : type === "workOrder" ? "workOrders" : "violations";
+    
+    LJ_STATE.db.ref(`${path}/${key}`).remove()
+      .then(() => {
+        showToast("Item deleted successfully", "success");
+        closeModal();
+      })
+      .catch(err => {
+        console.error("Error deleting item:", err);
+        showToast("Error deleting item", "error");
+      });
+  }
+}
+
+function handleExportItem() {
+  if (!LJ_STATE.currentItem) return;
+  const { data } = LJ_STATE.currentItem;
+  exportToCSV([data], `item_${data.referenceNumber}.csv`);
+}
+
+function handleAddComment(e) {
+  e.preventDefault();
+  if (!LJ_STATE.currentItem) return;
+
+  const input = document.getElementById("commentInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const { type, key } = LJ_STATE.currentItem;
+  const path = type === "ticket" ? "tickets" : type === "workOrder" ? "workOrders" : "violations";
+
+  const comment = {
+    text,
+    author: window.currentUser?.name || "Kevin R",
+    timestamp: new Date().toISOString(),
+  };
+
+  LJ_STATE.db.ref(`${path}/${key}/comments`).push(comment)
+    .then(() => {
+      input.value = "";
+      loadComments(type, key);
+      showToast("Comment added", "success");
+    })
+    .catch(err => {
+      console.error("Error adding comment:", err);
+      showToast("Error adding comment", "error");
+    });
+}
+
+function loadComments(itemType, itemKey) {
+  const path = itemType === "ticket" ? "tickets" : itemType === "workOrder" ? "workOrders" : "violations";
+  const commentsList = document.getElementById("commentsList");
+  
+  LJ_STATE.db.ref(`${path}/${itemKey}/comments`).once("value", snapshot => {
+    if (!snapshot.exists()) {
+      commentsList.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No comments yet</p>';
+      return;
+    }
+
+    const comments = [];
+    snapshot.forEach(child => {
+      comments.push({ key: child.key, ...child.val() });
+    });
+
+    commentsList.innerHTML = comments.map(c => `
+      <div class="border-l-2 border-slate-200 pl-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-medium text-slate-900">${c.author}</span>
+          <span class="text-[10px] text-slate-400">${formatDate(c.timestamp)}</span>
+        </div>
+        <p class="text-xs text-slate-600">${c.text}</p>
+      </div>
+    `).join("");
+  });
+}
+
+function loadAttachments(itemType, itemKey) {
+  const attachmentsList = document.getElementById("attachmentsList");
+  attachmentsList.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No attachments yet</p>';
+}
+
+function loadHistory(itemType, itemKey) {
+  const historyList = document.getElementById("historyList");
+  const path = itemType === "ticket" ? "tickets" : itemType === "workOrder" ? "workOrders" : "violations";
+  
+  LJ_STATE.db.ref(`${path}/${itemKey}`).once("value", snapshot => {
+    const item = snapshot.val();
+    if (!item) return;
+
+    const history = [];
+    
+    // Created event
+    history.push({
+      timestamp: item.created,
+      event: "Item created",
+      icon: "plus"
+    });
+
+    // Status changes (if history exists)
+    if (item.statusHistory) {
+      Object.values(item.statusHistory).forEach(h => {
+        history.push({
+          timestamp: h.timestamp,
+          event: `Status changed to ${h.status}`,
+          icon: "refresh"
+        });
+      });
+    }
+
+    // Sort by timestamp
+    history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    historyList.innerHTML = history.map(h => `
+      <div class="flex gap-2">
+        <div class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center">
+          <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            ${h.icon === "plus" 
+              ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />'
+              : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />'
+            }
+          </svg>
+        </div>
+        <div class="flex-1">
+          <p class="text-slate-900">${h.event}</p>
+          <p class="text-slate-400">${formatDate(h.timestamp)}</p>
+        </div>
+      </div>
+    `).join("");
+  });
+}
+
+// ---------- File Upload ----------
+
+function initFileUpload() {
+  const fileInput = document.getElementById("fileInput");
+  if (fileInput) {
+    fileInput.addEventListener("change", handleFileUpload);
+  }
+}
+
+function handleFileUpload(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length || !LJ_STATE.currentItem) return;
+
+  // Simple file size validation
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  const validFiles = files.filter(f => f.size <= maxSize);
+  
+  if (validFiles.length !== files.length) {
+    showToast("Some files were too large (max 5MB)", "error");
+  }
+
+  // In a real app, you'd upload to Firebase Storage here
+  showToast(`${validFiles.length} file(s) ready to upload`, "success");
+  e.target.value = ""; // Clear input
+}
+
+// ---------- Search & Filters ----------
+
+function initSearch() {
+  const searchInput = document.getElementById("globalSearch");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      LJ_STATE.searchQuery = e.target.value.toLowerCase();
+      renderCurrentView();
+    });
+  }
+}
+
+function initFilters() {
+  const filterButtons = document.querySelectorAll("[data-filter-status]");
+  filterButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      LJ_STATE.filterStatus = btn.dataset.filterStatus;
+      
+      // Update button styles
+      filterButtons.forEach(b => {
+        const isActive = b.dataset.filterStatus === LJ_STATE.filterStatus;
+        b.classList.toggle("bg-indigo-100", isActive);
+        b.classList.toggle("text-indigo-700", isActive);
+        b.classList.toggle("bg-slate-100", !isActive);
+        b.classList.toggle("text-slate-600", !isActive);
+      });
+
+      renderCurrentView();
+    });
+  });
+}
+
+// ---------- Bulk Actions ----------
+
+function initBulkActions() {
+  // Select All buttons (one for each table)
+  document.getElementById("selectAllOverview")?.addEventListener("change", (e) => {
+    handleSelectAll(e.target.checked, "overview");
+  });
+  document.getElementById("selectAllTickets")?.addEventListener("change", (e) => {
+    handleSelectAll(e.target.checked, "tickets");
+  });
+  document.getElementById("selectAllWorkOrders")?.addEventListener("change", (e) => {
+    handleSelectAll(e.target.checked, "workOrders");
+  });
+  document.getElementById("selectAllViolations")?.addEventListener("change", (e) => {
+    handleSelectAll(e.target.checked, "violations");
+  });
+
+  // Bulk action buttons
+  document.getElementById("selectAllBtn")?.addEventListener("click", () => {
+    const activeView = getCurrentActiveView();
+    handleSelectAll(true, activeView);
+  });
+
+  document.getElementById("clearSelectionBtn")?.addEventListener("click", clearBulkSelection);
+  document.getElementById("closeBulkActionsBtn")?.addEventListener("click", clearBulkSelection);
+
+  // Apply changes button
+  document.getElementById("bulkAssignBtn")?.addEventListener("click", applyBulkChanges);
+  
+  // Export selected
+  document.getElementById("bulkExportBtn")?.addEventListener("click", exportSelectedItems);
+  
+  // Delete selected
+  document.getElementById("bulkDeleteBtn")?.addEventListener("click", deleteSelectedItems);
+
+  // Status select change
+  document.getElementById("bulkStatusSelect")?.addEventListener("change", (e) => {
+    if (e.target.value) {
+      applyBulkChanges();
+    }
+  });
+
+  // Priority select change
+  document.getElementById("bulkPrioritySelect")?.addEventListener("change", (e) => {
+    if (e.target.value) {
+      applyBulkChanges();
+    }
+  });
+
+  // Association select change
+  document.getElementById("bulkAssociationSelect")?.addEventListener("change", (e) => {
+    if (e.target.value) {
+      applyBulkChanges();
+    }
+  });
+}
+
+function handleItemCheckboxChange(checkbox, itemId) {
+  if (checkbox.checked) {
+    LJ_STATE.selectedItems.add(itemId);
+  } else {
+    LJ_STATE.selectedItems.delete(itemId);
+  }
+  updateBulkActionsBar();
+}
+
+function handleSelectAll(checked, viewType) {
+  const items = getFilteredItems();
+  
+  if (checked) {
+    items.forEach(item => {
+      LJ_STATE.selectedItems.add(item.id);
+    });
+  } else {
+    items.forEach(item => {
+      LJ_STATE.selectedItems.delete(item.id);
+    });
+  }
+  
+  renderCurrentView();
+  updateBulkActionsBar();
+}
+
+function clearBulkSelection() {
+  LJ_STATE.selectedItems.clear();
+  renderCurrentView();
+  updateBulkActionsBar();
+}
+
+function updateBulkActionsBar() {
+  const count = LJ_STATE.selectedItems.size;
+  const bar = document.getElementById("bulkActionsBar");
+  const countEl = document.getElementById("bulkSelectedCount");
+  const selectAllBtn = document.getElementById("selectAllBtn");
+  const clearBtn = document.getElementById("clearSelectionBtn");
+
+  if (countEl) {
+    countEl.textContent = `${count} item${count !== 1 ? 's' : ''} selected`;
+  }
+
+  if (count > 0) {
+    bar?.classList.add("active");
+    selectAllBtn?.classList.remove("hidden");
+    clearBtn?.classList.remove("hidden");
+  } else {
+    bar?.classList.remove("active");
+    selectAllBtn?.classList.add("hidden");
+    clearBtn?.classList.add("hidden");
+  }
+}
+
+function applyBulkChanges() {
+  if (LJ_STATE.selectedItems.size === 0) {
+    showToast("No items selected", "error");
+    return;
+  }
+
+  const statusSelect = document.getElementById("bulkStatusSelect");
+  const prioritySelect = document.getElementById("bulkPrioritySelect");
+  const associationSelect = document.getElementById("bulkAssociationSelect");
+  const assignInput = document.getElementById("bulkAssignInput");
+
+  const updates = {};
+  let updateCount = 0;
+
+  if (statusSelect?.value) {
+    updates.status = statusSelect.value;
+    updateCount++;
+  }
+  if (prioritySelect?.value) {
+    updates.priority = prioritySelect.value;
+    updateCount++;
+  }
+  if (associationSelect?.value) {
+    updates.association = associationSelect.value;
+    updateCount++;
+  }
+  if (assignInput?.value.trim()) {
+    updates.assignedTo = assignInput.value.trim();
+    updateCount++;
+  }
+
+  if (updateCount === 0) {
+    showToast("Please select at least one change to apply", "error");
+    return;
+  }
+
+  updates.updated = new Date().toISOString();
+
+  const promises = [];
+  LJ_STATE.selectedItems.forEach(itemId => {
+    const [type, key] = itemId.split(":");
+    const path = type === "ticket" ? "tickets" : type === "workOrder" ? "workOrders" : "violations";
+    promises.push(LJ_STATE.db.ref(`${path}/${key}`).update(updates));
+  });
+
+  Promise.all(promises)
+    .then(() => {
+      showToast(`Updated ${LJ_STATE.selectedItems.size} items successfully!`, "success");
+      
+      // Reset selects
+      if (statusSelect) statusSelect.value = "";
+      if (prioritySelect) prioritySelect.value = "";
+      if (associationSelect) associationSelect.value = "";
+      if (assignInput) assignInput.value = "";
+      
+      clearBulkSelection();
+    })
+    .catch(err => {
+      console.error("Error applying bulk changes:", err);
+      showToast("Error updating items", "error");
+    });
+}
+
+function exportSelectedItems() {
+  if (LJ_STATE.selectedItems.size === 0) {
+    showToast("No items selected", "error");
+    return;
+  }
+
+  const selectedData = [];
+  LJ_STATE.selectedItems.forEach(itemId => {
+    const [type, key] = itemId.split(":");
+    let item;
+    if (type === "ticket") item = LJ_STATE.tickets[key];
+    else if (type === "workOrder") item = LJ_STATE.workOrders[key];
+    else if (type === "violation") item = LJ_STATE.violations[key];
+    
+    if (item) {
+      selectedData.push({ ...item, type });
+    }
+  });
+
+  exportToCSV(selectedData, `bulk_export_${Date.now()}.csv`);
+  showToast(`Exported ${selectedData.length} items`, "success");
+}
+
+function deleteSelectedItems() {
+  if (LJ_STATE.selectedItems.size === 0) {
+    showToast("No items selected", "error");
+    return;
+  }
+
+  if (!confirm(`Are you sure you want to delete ${LJ_STATE.selectedItems.size} items? This cannot be undone.`)) {
+    return;
+  }
+
+  const promises = [];
+  LJ_STATE.selectedItems.forEach(itemId => {
+    const [type, key] = itemId.split(":");
+    const path = type === "ticket" ? "tickets" : type === "workOrder" ? "workOrders" : "violations";
+    promises.push(LJ_STATE.db.ref(`${path}/${key}`).remove());
+  });
+
+  Promise.all(promises)
+    .then(() => {
+      showToast(`Deleted ${LJ_STATE.selectedItems.size} items successfully!`, "success");
+      clearBulkSelection();
+    })
+    .catch(err => {
+      console.error("Error deleting items:", err);
+      showToast("Error deleting items", "error");
+    });
+}
+
+function getCurrentActiveView() {
+  const views = document.querySelectorAll("[data-dashboard-view]");
+  for (const view of views) {
+    if (!view.classList.contains("hidden")) {
+      return view.dataset.dashboardView;
+    }
+  }
+  return "main";
+}
+
+// ---------- Export ----------
+
+function initExport() {
+  const exportBtn = document.getElementById("exportCurrentViewBtn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", handleExportCurrentView);
+  }
+}
+
+function handleExportCurrentView() {
+  const items = getFilteredItems();
+  if (items.length === 0) {
+    showToast("No items to export", "error");
+    return;
+  }
+
+  const view = getCurrentActiveView();
+  exportToCSV(items, `${view}_export_${Date.now()}.csv`);
+  showToast(`Exported ${items.length} items`, "success");
+}
+
+function exportToCSV(items, filename) {
+  if (!items.length) return;
+
+  // Get all unique keys
+  const keys = new Set();
+  items.forEach(item => {
+    Object.keys(item).forEach(key => {
+      if (key !== "comments" && key !== "attachments" && key !== "history") {
+        keys.add(key);
+      }
+    });
+  });
+
+  const headers = Array.from(keys);
+  const rows = items.map(item => 
+    headers.map(key => {
+      const value = item[key];
+      if (value === null || value === undefined) return "";
+      if (typeof value === "string" && value.includes(",")) return `"${value}"`;
+      return value;
+    })
+  );
+
+  const csv = [
+    headers.join(","),
+    ...rows.map(row => row.join(","))
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+// ---------- Realtime Listeners ----------
+
+function initRealtimeListeners() {
+  LJ_STATE.db.ref("tickets").on("value", snapshot => {
+    LJ_STATE.tickets = snapshot.val() || {};
+    renderCurrentView();
+    updateStats();
+  });
+
+  LJ_STATE.db.ref("workOrders").on("value", snapshot => {
+    LJ_STATE.workOrders = snapshot.val() || {};
+    renderCurrentView();
+    updateStats();
+  });
+
+  LJ_STATE.db.ref("violations").on("value", snapshot => {
+    LJ_STATE.violations = snapshot.val() || {};
+    renderCurrentView();
+    updateStats();
+  });
+}
+
+// ---------- Rendering ----------
+
+function renderCurrentView() {
+  const activeView = getCurrentActiveView();
+  
+  if (activeView === "main") renderOverview();
+  else if (activeView === "tickets") renderTicketsDashboard();
+  else if (activeView === "workOrders") renderWorkOrdersDashboard();
+  else if (activeView === "violations") renderViolationsDashboard();
+  
+  updateSearchResults();
+}
+
+function getFilteredItems() {
+  let allItems = [];
+  
+  // Collect all items
+  Object.entries(LJ_STATE.tickets).forEach(([key, item]) => {
+    allItems.push({ ...item, id: `ticket:${key}`, key, type: "ticket" });
+  });
+  Object.entries(LJ_STATE.workOrders).forEach(([key, item]) => {
+    allItems.push({ ...item, id: `workOrder:${key}`, key, type: "workOrder" });
+  });
+  Object.entries(LJ_STATE.violations).forEach(([key, item]) => {
+    allItems.push({ ...item, id: `violation:${key}`, key, type: "violation" });
+  });
+
+  // Apply status filter
+  if (LJ_STATE.filterStatus !== "all") {
+    allItems = allItems.filter(item => 
+      item.status?.toLowerCase() === LJ_STATE.filterStatus.toLowerCase()
+    );
+  }
+
+  // Apply search filter
+  if (LJ_STATE.searchQuery) {
+    allItems = allItems.filter(item => {
+      const searchStr = [
+        item.title,
+        item.association,
+        item.vendor,
+        item.referenceNumber,
+        item.description,
+        item.ruleBroken
+      ].filter(Boolean).join(" ").toLowerCase();
+      
+      return searchStr.includes(LJ_STATE.searchQuery);
+    });
+  }
+
+  return allItems;
+}
+
+function renderOverview() {
+  const tbody = document.getElementById("overviewTableBody");
+  if (!tbody) return;
+
+  const items = getFilteredItems();
+  items.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+  if (items.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+          No items found matching your filters.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = items.map(item => {
+    const isSelected = LJ_STATE.selectedItems.has(item.id);
+    return `
+      <tr class="item-row hover:bg-slate-50 cursor-pointer ${isSelected ? 'selected' : ''}" data-item-id="${item.id}">
+        <td class="px-4 py-3" onclick="event.stopPropagation()">
+          <input 
+            type="checkbox" 
+            class="item-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+            data-item-id="${item.id}"
+            ${isSelected ? 'checked' : ''}
+          />
+        </td>
+        <td class="px-4 py-3">
+          ${getTypeBadge(item.type)}
+        </td>
+        <td class="px-4 py-3 font-medium text-slate-900">${item.title}</td>
+        <td class="px-4 py-3 text-slate-600">${item.association}</td>
+        <td class="px-4 py-3">${getStatusBadge(item.status)}</td>
+        <td class="px-4 py-3 text-slate-500">${formatDate(item.created)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  // Add click handlers
+  attachTableRowHandlers("overviewTableBody", items);
+}
+
+function renderTicketsDashboard() {
+  const tbody = document.getElementById("ticketsTableBody");
+  if (!tbody) return;
+
+  const tickets = Object.entries(LJ_STATE.tickets)
+    .map(([key, item]) => ({ ...item, id: `ticket:${key}`, key, type: "ticket" }))
+    .filter(item => matchesFilters(item));
+
+  tickets.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+  if (tickets.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+          No tickets found.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = tickets.map(item => {
+    const isSelected = LJ_STATE.selectedItems.has(item.id);
+    return `
+      <tr class="item-row hover:bg-slate-50 cursor-pointer ${isSelected ? 'selected' : ''}" data-item-id="${item.id}">
+        <td class="px-4 py-3" onclick="event.stopPropagation()">
+          <input 
+            type="checkbox" 
+            class="item-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+            data-item-id="${item.id}"
+            ${isSelected ? 'checked' : ''}
+          />
+        </td>
+        <td class="px-4 py-3 font-medium text-slate-900">${item.title}</td>
+        <td class="px-4 py-3 text-slate-600">${item.association}</td>
+        <td class="px-4 py-3">${getStatusBadge(item.status)}</td>
+        <td class="px-4 py-3">${getPriorityBadge(item.priority)}</td>
+        <td class="px-4 py-3 text-slate-500">${formatDate(item.created)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  attachTableRowHandlers("ticketsTableBody", tickets);
+}
+
+function renderWorkOrdersDashboard() {
+  const tbody = document.getElementById("workOrdersTableBody");
+  if (!tbody) return;
+
+  const workOrders = Object.entries(LJ_STATE.workOrders)
+    .map(([key, item]) => ({ ...item, id: `workOrder:${key}`, key, type: "workOrder" }))
+    .filter(item => matchesFilters(item));
+
+  workOrders.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+  if (workOrders.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="px-4 py-8 text-center text-slate-400">
+          No work orders found.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = workOrders.map(item => {
+    const isSelected = LJ_STATE.selectedItems.has(item.id);
+    return `
+      <tr class="item-row hover:bg-slate-50 cursor-pointer ${isSelected ? 'selected' : ''}" data-item-id="${item.id}">
+        <td class="px-4 py-3" onclick="event.stopPropagation()">
+          <input 
+            type="checkbox" 
+            class="item-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+            data-item-id="${item.id}"
+            ${isSelected ? 'checked' : ''}
+          />
+        </td>
+        <td class="px-4 py-3 font-medium text-slate-900">${item.title}</td>
+        <td class="px-4 py-3 text-slate-600">${item.association}</td>
+        <td class="px-4 py-3 text-slate-600">${item.vendor || "N/A"}</td>
+        <td class="px-4 py-3">${getStatusBadge(item.status)}</td>
+        <td class="px-4 py-3 text-slate-900">${item.estimatedCost ? "$" + parseFloat(item.estimatedCost).toLocaleString() : "N/A"}</td>
+        <td class="px-4 py-3 text-slate-500">${formatDate(item.created)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  attachTableRowHandlers("workOrdersTableBody", workOrders);
+}
+
+function renderViolationsDashboard() {
+  const tbody = document.getElementById("violationsTableBody");
+  if (!tbody) return;
+
+  const violations = Object.entries(LJ_STATE.violations)
+    .map(([key, item]) => ({ ...item, id: `violation:${key}`, key, type: "violation" }))
+    .filter(item => matchesFilters(item));
+
+  violations.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+  if (violations.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="px-4 py-8 text-center text-slate-400">
+          No violations found.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = violations.map(item => {
+    const isSelected = LJ_STATE.selectedItems.has(item.id);
+    return `
+      <tr class="item-row hover:bg-slate-50 cursor-pointer ${isSelected ? 'selected' : ''}" data-item-id="${item.id}">
+        <td class="px-4 py-3" onclick="event.stopPropagation()">
+          <input 
+            type="checkbox" 
+            class="item-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
+            data-item-id="${item.id}"
+            ${isSelected ? 'checked' : ''}
+          />
+        </td>
+        <td class="px-4 py-3 font-medium text-slate-900">${item.title}</td>
+        <td class="px-4 py-3 text-slate-600">${item.association}</td>
+        <td class="px-4 py-3 text-slate-600">${item.ruleBroken || "N/A"}</td>
+        <td class="px-4 py-3">${getNoticeBadge(item.noticeStep)}</td>
+        <td class="px-4 py-3">${getStatusBadge(item.status)}</td>
+        <td class="px-4 py-3 text-slate-500">${formatDate(item.created)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  attachTableRowHandlers("violationsTableBody", violations);
+}
+
+function attachTableRowHandlers(tbodyId, items) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+
+  // Row click to open modal
+  const rows = tbody.querySelectorAll("tr[data-item-id]");
+  rows.forEach(row => {
+    row.addEventListener("click", (e) => {
+      if (e.target.type === "checkbox") return;
+      const itemId = row.dataset.itemId;
+      const [type, key] = itemId.split(":");
+      openModal(type, key);
+    });
+  });
+
+  // Checkbox change
+  const checkboxes = tbody.querySelectorAll("input[type='checkbox'].item-checkbox");
+  checkboxes.forEach(cb => {
+    cb.addEventListener("change", (e) => {
+      handleItemCheckboxChange(e.target, e.target.dataset.itemId);
+    });
+  });
+}
+
+function matchesFilters(item) {
+  // Status filter
+  if (LJ_STATE.filterStatus !== "all" && item.status?.toLowerCase() !== LJ_STATE.filterStatus.toLowerCase()) {
+    return false;
+  }
+
+  // Search filter
+  if (LJ_STATE.searchQuery) {
+    const searchStr = [
+      item.title,
+      item.association,
+      item.vendor,
+      item.referenceNumber,
+      item.description,
+      item.ruleBroken
+    ].filter(Boolean).join(" ").toLowerCase();
+    
+    if (!searchStr.includes(LJ_STATE.searchQuery)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function updateStats() {
+  const allItems = [
+    ...Object.values(LJ_STATE.tickets),
+    ...Object.values(LJ_STATE.workOrders),
+    ...Object.values(LJ_STATE.violations)
+  ];
+
+  const total = allItems.length;
+  const open = allItems.filter(i => i.status === "open").length;
+  const inProgress = allItems.filter(i => i.status === "in progress").length;
+  const closed = allItems.filter(i => i.status === "closed").length;
+
+  document.getElementById("statTotal").textContent = total;
+  document.getElementById("statOpen").textContent = open;
+  document.getElementById("statInProgress").textContent = inProgress;
+  document.getElementById("statClosed").textContent = closed;
+}
+
+function updateSearchResults() {
+  const resultEl = document.getElementById("searchResults");
+  if (!resultEl) return;
+
+  const items = getFilteredItems();
+  const total = Object.keys(LJ_STATE.tickets).length + 
+                Object.keys(LJ_STATE.workOrders).length + 
+                Object.keys(LJ_STATE.violations).length;
+
+  if (LJ_STATE.searchQuery || LJ_STATE.filterStatus !== "all") {
+    resultEl.textContent = `Showing ${items.length} of ${total} items`;
+  } else {
+    resultEl.textContent = `${total} total items`;
+  }
+}
+
+// ---------- UI Helper Functions ----------
+
+function getTypeBadge(type) {
+  const badges = {
+    ticket: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700">Ticket</span>',
+    workOrder: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">Work Order</span>',
+    violation: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700">Violation</span>',
+  };
+  return badges[type] || "";
+}
+
+function getStatusBadge(status) {
+  const badges = {
+    open: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">Open</span>',
+    "in progress": '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">In Progress</span>',
+    closed: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700">Closed</span>',
+  };
+  return badges[status?.toLowerCase()] || '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700">Unknown</span>';
+}
+
+function getPriorityBadge(priority) {
+  const badges = {
+    low: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700">Low</span>',
+    medium: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">Medium</span>',
+    high: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700">High</span>',
+    urgent: '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700">Urgent</span>',
+  };
+  return badges[priority?.toLowerCase()] || "";
+}
+
+function getNoticeBadge(step) {
+  const badges = {
+    "1st Notice": '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700">1st Notice</span>',
+    "2nd Notice": '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700">2nd Notice</span>',
+    "3rd Notice": '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-red-100 text-red-700">3rd Notice</span>',
+    "Final Notice": '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700">Final Notice</span>',
+  };
+  return badges[step] || "";
+}
+
+function formatDate(isoString) {
+  if (!isoString) return "N/A";
+  const date = new Date(isoString);
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ---------- Toast Notifications ----------
+
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+
+  const colors = {
+    success: "bg-emerald-500",
+    error: "bg-rose-500",
+    info: "bg-indigo-500",
+  };
+
+  const toast = document.createElement("div");
+  toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium transform transition-all duration-300 translate-y-0 opacity-100`;
+  toast.textContent = message;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("translate-y-2", "opacity-0");
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+console.log("✅ LJ Services CRM with Bulk Actions loaded successfully!");
