@@ -120,53 +120,61 @@ function initDashboardNavigation() {
     });
   }
 
-  function switchDashboard(type) {
-    // Remove active class from all tabs
-    tabButtons.forEach(b => {
-      b.classList.remove("text-indigo-700", "bg-indigo-50");
-      b.classList.add("text-slate-600");
-    });
+function switchDashboard(type) {
+  // Remove active class from all tabs
+  tabButtons.forEach(b => {
+    b.classList.remove("text-indigo-700", "bg-indigo-50");
+    b.classList.add("text-slate-600");
+  });
 
-    // Add active class to selected tab
-    const activeBtn = document.querySelector(`[data-dashboard="${type}"]`);
-    if (activeBtn) {
-      activeBtn.classList.add("text-indigo-700", "bg-indigo-50");
-      activeBtn.classList.remove("text-slate-600");
-    }
-
-    // Hide all dashboard views
-    views.forEach(v => v.classList.add("hidden"));
-
-    // Show selected view
-    const activeView = document.querySelector(`[data-dashboard-view="${type}"]`);
-    if (activeView) {
-      activeView.classList.remove("hidden");
-    }
-
-    // Handle registrations dashboard
-    if (type === "registrations") {
-      if (titleEl) titleEl.textContent = "Registrations Dashboard";
-      if (subtitleEl) subtitleEl.textContent = "View all vehicle, boat, and pet registrations";
-      
-      // Load registration data
-      if (!REGISTRATION_STATE.loading && !REGISTRATION_STATE.lastUpdate) {
-        loadRegistrationsData();
-      }
-    }
-    // Handle other dashboards
-    else if (type === "main") {
-      if (titleEl) titleEl.textContent = "Overview";
-      if (subtitleEl) subtitleEl.textContent = "High-level activity across all items.";
-    }
-    else if (type === "tickets") {
-      if (titleEl) titleEl.textContent = "Tickets Dashboard";
-      if (subtitleEl) subtitleEl.textContent = "View and manage all tickets.";
-    }
-    // ... other dashboard types ...
+  // Add active class to selected tab
+  const activeBtn = document.querySelector(`[data-dashboard="${type}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add("text-indigo-700", "bg-indigo-50");
+    activeBtn.classList.remove("text-slate-600");
   }
 
-  // Initialize registrations
-  initRegistrationsDashboard();
+  // Hide all dashboard views
+  views.forEach(v => v.classList.add("hidden"));
+
+  // Show selected view
+  const activeView = document.querySelector(`[data-dashboard-view="${type}"]`);
+  if (activeView) {
+    activeView.classList.remove("hidden");
+  }
+
+  // Update titles and load data
+  if (type === "registrations") {
+    if (titleEl) titleEl.textContent = "Registrations Dashboard";
+    if (subtitleEl) subtitleEl.textContent = "View all vehicle, boat, and pet registrations";
+    
+    // Load registration data if not already loaded
+    if (!REGISTRATION_STATE.lastUpdate) {
+      loadRegistrationsData();
+    }
+  }
+  else if (type === "main") {
+    if (titleEl) titleEl.textContent = "Overview";
+    if (subtitleEl) subtitleEl.textContent = "High-level activity across all items.";
+  }
+  else if (type === "tickets") {
+    if (titleEl) titleEl.textContent = "Tickets Dashboard";
+    if (subtitleEl) subtitleEl.textContent = "View and manage all tickets.";
+  }
+  else if (type === "workOrders") {
+    if (titleEl) titleEl.textContent = "Work Orders Dashboard";
+    if (subtitleEl) subtitleEl.textContent = "View and manage all work orders.";
+  }
+  else if (type === "violations") {
+    if (titleEl) titleEl.textContent = "Violations Dashboard";
+    if (subtitleEl) subtitleEl.textContent = "View and manage all violations.";
+  }
+  
+  // Clear bulk selections when switching
+  clearBulkSelection();
+  if (type !== "registrations") {
+    renderCurrentView();
+  }
 }
 
   const LABELS = {
