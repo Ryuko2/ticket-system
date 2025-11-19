@@ -45,6 +45,32 @@ const LJ_STATE = {
   ]
 };
 
+// Registration State
+const REGISTRATION_STATE = {
+  vehicles: [],
+  boats: [],
+  pets: [],
+  loading: false,
+  lastUpdate: null,
+  sheetConfigs: {
+    vehicles: {
+      sheetId: '1VmOzpbum_cs57nSFVpeBBC5VPTW9y74z_ocE8fvuA04',
+      gid: '0',
+      name: 'Vehicle Registration'
+    },
+    boats: {
+      sheetId: '1ftrWNofz2v0ZxB0y0QKioIsN9gb9dKvr63zDpM-4xSA',
+      gid: '0',
+      name: 'Boat Registration'
+    },
+    pets: {
+      sheetId: '1msMnNnKMz-RkT_3Tf-jocpoA5Nf8tuJz8W8wn42avps',
+      gid: '0',
+      name: 'Pet Registration'
+    }
+  }
+};
+
 // ---------- Initialization ----------
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -107,6 +133,69 @@ function initDashboardNavigation() {
   const titleEl = document.getElementById("dashboardTitle");
   const subtitleEl = document.getElementById("dashboardSubtitle");
 
+  function switchDashboard(type) {
+    // Remove active class from all tabs
+    tabButtons.forEach(b => {
+      b.classList.remove("text-indigo-700", "bg-indigo-50");
+      b.classList.add("text-slate-600");
+    });
+
+    // Add active class to selected tab
+    const activeBtn = document.querySelector(`[data-dashboard="${type}"]`);
+    if (activeBtn) {
+      activeBtn.classList.add("text-indigo-700", "bg-indigo-50");
+      activeBtn.classList.remove("text-slate-600");
+    }
+
+    // Hide all dashboard views
+    views.forEach(v => v.classList.add("hidden"));
+
+    // Show selected view
+    const activeView = document.querySelector(`[data-dashboard-view="${type}"]`);
+    if (activeView) {
+      activeView.classList.remove("hidden");
+    }
+
+    // Update titles and load data based on dashboard type
+    if (type === "registrations") {
+      if (titleEl) titleEl.textContent = "Registrations Dashboard";
+      if (subtitleEl) subtitleEl.textContent = "View all vehicle, boat, and pet registrations";
+      
+      // Load registration data if not already loaded
+      if (!REGISTRATION_STATE.lastUpdate) {
+        loadRegistrationsData();
+      }
+    }
+    else if (type === "main") {
+      if (titleEl) titleEl.textContent = "Overview";
+      if (subtitleEl) subtitleEl.textContent = "High-level activity across all items.";
+      clearBulkSelection();
+      renderCurrentView();
+    }
+    else if (type === "tickets") {
+      if (titleEl) titleEl.textContent = "Tickets Dashboard";
+      if (subtitleEl) subtitleEl.textContent = "General tickets and internal tasks.";
+      clearBulkSelection();
+      renderCurrentView();
+    }
+    else if (type === "workOrders") {
+      if (titleEl) titleEl.textContent = "Work Orders Dashboard";
+      if (subtitleEl) subtitleEl.textContent = "Vendor work and maintenance.";
+      clearBulkSelection();
+      renderCurrentView();
+    }
+    else if (type === "violations") {
+      if (titleEl) titleEl.textContent = "Violations Dashboard";
+      if (subtitleEl) subtitleEl.textContent = "CC&R enforcement.";
+      clearBulkSelection();
+      renderCurrentView();
+    }
+    
+    // Update mobile select
+    if (mobileSelect) mobileSelect.value = type;
+  }
+
+  // Attach click handlers to tab buttons
   tabButtons.forEach(btn => {
     btn.addEventListener("click", () => {
       const dashboardType = btn.getAttribute("data-dashboard");
@@ -114,117 +203,18 @@ function initDashboardNavigation() {
     });
   });
 
+  // Mobile select handler
   if (mobileSelect) {
     mobileSelect.addEventListener("change", (e) => {
       switchDashboard(e.target.value);
     });
   }
 
-  function switchDashboard(type) {
-    // ... (the function above)
-  }
-
-  // Initialize registrations
-  initRegistrationsDashboard();
-}
-
-function switchDashboard(type) {
-  // Remove active class from all tabs
-  tabButtons.forEach(b => {
-    b.classList.remove("text-indigo-700", "bg-indigo-50");
-    b.classList.add("text-slate-600");
-  });
-
-  // Add active class to selected tab
-  const activeBtn = document.querySelector(`[data-dashboard="${type}"]`);
-  if (activeBtn) {
-    activeBtn.classList.add("text-indigo-700", "bg-indigo-50");
-    activeBtn.classList.remove("text-slate-600");
-  }
-
-  // Hide all dashboard views
-  views.forEach(v => v.classList.add("hidden"));
-
-  // Show selected view
-  const activeView = document.querySelector(`[data-dashboard-view="${type}"]`);
-  if (activeView) {
-    activeView.classList.remove("hidden");
-  }
-
-  // Update titles and load data
-  if (type === "registrations") {
-    if (titleEl) titleEl.textContent = "Registrations Dashboard";
-    if (subtitleEl) subtitleEl.textContent = "View all vehicle, boat, and pet registrations";
-    
-    // Load registration data if not already loaded
-    if (!REGISTRATION_STATE.lastUpdate) {
-      loadRegistrationsData();
-    }
-  }
-  else if (type === "main") {
-    if (titleEl) titleEl.textContent = "Overview";
-    if (subtitleEl) subtitleEl.textContent = "High-level activity across all items.";
-  }
-  else if (type === "tickets") {
-    if (titleEl) titleEl.textContent = "Tickets Dashboard";
-    if (subtitleEl) subtitleEl.textContent = "View and manage all tickets.";
-  }
-  else if (type === "workOrders") {
-    if (titleEl) titleEl.textContent = "Work Orders Dashboard";
-    if (subtitleEl) subtitleEl.textContent = "View and manage all work orders.";
-  }
-  else if (type === "violations") {
-    if (titleEl) titleEl.textContent = "Violations Dashboard";
-    if (subtitleEl) subtitleEl.textContent = "View and manage all violations.";
-  }
+  // Set default dashboard
+  switchDashboard("main");
   
-  // Clear bulk selections when switching
-  clearBulkSelection();
-  if (type !== "registrations") {
-    renderCurrentView();
-  }
-}
-
-  const LABELS = {
-    main: { title: "Overview", subtitle: "High-level activity across all items." },
-    tickets: { title: "Tickets Dashboard", subtitle: "General tickets and internal tasks." },
-    workOrders: { title: "Work Orders Dashboard", subtitle: "Vendor work and maintenance." },
-    violations: { title: "Violations Dashboard", subtitle: "CC&R enforcement." },
-  };
-
-  function setDashboard(id) {
-    tabButtons.forEach((btn) => {
-      const isActive = btn.dataset.dashboard === id;
-      btn.classList.toggle("bg-indigo-50", isActive);
-      btn.classList.toggle("text-indigo-700", isActive);
-      btn.classList.toggle("text-slate-600", !isActive);
-    });
-
-    views.forEach((view) => {
-      view.classList.toggle("hidden", view.dataset.dashboardView !== id);
-    });
-
-    if (titleEl && LABELS[id]) {
-      titleEl.textContent = LABELS[id].title;
-      subtitleEl.textContent = LABELS[id].subtitle;
-    }
-
-    if (mobileSelect) mobileSelect.value = id;
-    
-    // Clear bulk selections when switching dashboards
-    clearBulkSelection();
-    renderCurrentView();
-  }
-
-  tabButtons.forEach((btn) => {
-    btn.addEventListener("click", () => setDashboard(btn.dataset.dashboard));
-  });
-
-  if (mobileSelect) {
-    mobileSelect.addEventListener("change", (e) => setDashboard(e.target.value));
-  }
-
-  setDashboard("main");
+  // Initialize registrations dashboard
+  console.log("✅ Registrations dashboard initialized");
 }
 
 // ---------- Drawers (Ticket, Work Order, Violation) ----------
@@ -1036,6 +1026,7 @@ function renderCurrentView() {
   else if (activeView === "tickets") renderTicketsDashboard();
   else if (activeView === "workOrders") renderWorkOrdersDashboard();
   else if (activeView === "violations") renderViolationsDashboard();
+  // Note: registrations dashboard renders itself
   
   updateSearchResults();
 }
@@ -1430,48 +1421,9 @@ function showToast(message, type = "info") {
   }, 3000);
 }
 
-console.log("✅ LJ Services CRM with Bulk Actions loaded successfully!");
 // ============================================
-// REGISTRATIONS DASHBOARD ADDITION
-// Add this to your existing app.js
+// REGISTRATIONS DASHBOARD
 // ============================================
-
-// Add to LJ_STATE object (around line 8-25):
-const REGISTRATION_STATE = {
-  vehicles: [],
-  boats: [],
-  pets: [],
-  loading: false,
-  lastUpdate: null,
-  sheetConfigs: {
-    vehicles: {
-      sheetId: '1VmOzpbum_cs57nSFVpeBBC5VPTW9y74z_ocE8fvuA04',
-      gid: '0',
-      name: 'Vehicle Registration'
-    },
-    boats: {
-      sheetId: '1ftrWNofz2v0ZxB0y0QKioIsN9gb9dKvr63zDpM-4xSA',
-      gid: '0',
-      name: 'Boat Registration'
-    },
-    pets: {
-      sheetId: '1msMnNnKMz-RkT_3Tf-jocpoA5Nf8tuJz8W8wn42avps',
-      gid: '0',
-      name: 'Pet Registration'
-    }
-  }
-};
-
-// Add to initDashboardNavigation() function:
-function initRegistrationsDashboard() {
-  const registrationsBtn = document.querySelector('[data-dashboard="registrations"]');
-  if (registrationsBtn) {
-    registrationsBtn.addEventListener('click', () => {
-      loadRegistrationsData();
-    });
-  }
-  console.log("✅ Registrations dashboard initialized");
-}
 
 // Fetch data from Google Sheets
 async function fetchSheetData(config) {
@@ -1646,7 +1598,7 @@ function renderVehiclesTable() {
     if (row['Vehicle 3 Make']) vehicles.push(`${row['Vehicle 3 Make']} ${row['Vehicle 3 Model']}`);
     
     html += `<tr class="hover:bg-slate-50">`;
-    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatDate(row['Timestamp'])}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatRegistrationDate(row['Timestamp'])}</td>`;
     html += `<td class="px-6 py-4 text-sm font-medium text-slate-900">${row['Unit Number']}</td>`;
     html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Resident Name']}</td>`;
     html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Association Name']}</td>`;
@@ -1676,7 +1628,7 @@ function renderBoatsTable() {
     const boat = `${row['Manufacturer']} ${row['Model']} (${row['Year']})`;
     
     html += `<tr class="hover:bg-slate-50">`;
-    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatDate(row['Timestamp'])}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatRegistrationDate(row['Timestamp'])}</td>`;
     html += `<td class="px-6 py-4 text-sm font-medium text-slate-900">${row['Unit Number']}</td>`;
     html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Property Owner']}</td>`;
     html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Association Name']}</td>`;
@@ -1707,7 +1659,7 @@ function renderPetsTable() {
     const petBreed = row['Breed'] || row['Breed Description'] || '';
     
     html += `<tr class="hover:bg-slate-50">`;
-    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatDate(row['Timestamp'])}</td>`;
+    html += `<td class="px-6 py-4 text-sm text-slate-600">${formatRegistrationDate(row['Timestamp'])}</td>`;
     html += `<td class="px-6 py-4 text-sm font-medium text-slate-900">${row['Unit Number']}</td>`;
     html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Owner Name']}</td>`;
     html += `<td class="px-6 py-4 text-sm text-slate-600">${row['Association Name']}</td>`;
@@ -1719,8 +1671,8 @@ function renderPetsTable() {
   return html;
 }
 
-// Helper functions
-function formatDate(dateString) {
+// Helper functions for registrations
+function formatRegistrationDate(dateString) {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
@@ -1754,5 +1706,4 @@ function showRegistrationsError(message) {
 // Export function to global scope
 window.showRegistrationsTab = showRegistrationsTab;
 
-console.log("✅ Registrations module loaded");
-
+console.log("✅ LJ Services CRM with Bulk Actions and Registrations loaded successfully!");
