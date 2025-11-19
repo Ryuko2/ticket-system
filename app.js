@@ -120,6 +120,14 @@ function initDashboardNavigation() {
     });
   }
 
+  function switchDashboard(type) {
+    // ... (the function above)
+  }
+
+  // Initialize registrations
+  initRegistrationsDashboard();
+}
+
 function switchDashboard(type) {
   // Remove active class from all tabs
   tabButtons.forEach(b => {
