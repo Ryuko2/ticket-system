@@ -414,8 +414,16 @@
         </div>
 
       </div>
-      <!-- Registrations Dashboard -->
-<div id="registrationsContent" class="dashboard-content hidden">
+     <!-- Registrations Dashboard -->
+<div data-dashboard-view="registrations" class="hidden">
+  <div id="registrationsContent">
+    <!-- Content loads here -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
+      <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent mb-4"></div>
+      <p class="text-sm text-slate-600">Loading registrations...</p>
+    </div>
+  </div>
+</div>
   <div class="space-y-6">
     <!-- Stats and tables will load here -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
