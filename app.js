@@ -1713,3 +1713,780 @@ function showRegistrationsError(message) {
 window.showRegistrationsTab = showRegistrationsTab;
 
 console.log("✅ LJ Services CRM with Bulk Actions and Registrations loaded successfully!");
+// ==========================================
+// PDF LETTER GENERATION SYSTEM
+// Add this to your app.js file
+// ==========================================
+
+// Add this HTML to your index.html for the PDF modal
+const PDF_MODAL_HTML = `
+<div id="pdfLetterModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-slate-900">Generate Letter</h2>
+      <button onclick="closePdfModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="flex-1 overflow-y-auto p-6">
+      
+      <!-- Letter Type Selection -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-slate-700 mb-2">Letter Type</label>
+        <select id="letterType" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <option value="">Select letter type...</option>
+        </select>
+      </div>
+
+      <!-- Recipient Information -->
+      <div class="mb-6">
+        <h3 class="text-sm font-medium text-slate-900 mb-3">Recipient Information</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">To (Name)*</label>
+            <input type="text" id="recipientName" placeholder="John Doe" 
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">To (Email)*</label>
+            <input type="email" id="recipientEmail" placeholder="john.doe@email.com" 
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs text-slate-600 mb-1">Address</label>
+            <textarea id="recipientAddress" rows="2" placeholder="123 Main St, Unit 101"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- CC Team Members -->
+      <div class="mb-6">
+        <h3 class="text-sm font-medium text-slate-900 mb-3">CC Team Members</h3>
+        <div class="space-y-2" id="ccCheckboxes">
+          <!-- Will be populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Additional CC Emails -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-slate-700 mb-2">Additional CC Emails</label>
+        <input type="text" id="additionalCC" placeholder="email1@example.com, email2@example.com" 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+        <p class="text-xs text-slate-500 mt-1">Separate multiple emails with commas</p>
+      </div>
+
+      <!-- Letter Preview -->
+      <div class="mb-6">
+        <h3 class="text-sm font-medium text-slate-900 mb-3">Letter Preview</h3>
+        <div id="letterPreview" class="border border-slate-200 rounded-lg p-6 bg-white" style="min-height: 400px;">
+          <!-- Letter content will appear here -->
+        </div>
+      </div>
+
+      <!-- Custom Notes -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-slate-700 mb-2">Additional Notes (Optional)</label>
+        <textarea id="customNotes" rows="3" placeholder="Add any additional information to include in the letter..."
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+      <button onclick="closePdfModal()" 
+        class="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+        Cancel
+      </button>
+      <div class="flex gap-2">
+        <button onclick="downloadPdfLetter()" 
+          class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Download PDF
+        </button>
+        <button onclick="sendPdfLetter()" 
+          class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Send Email
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+`;
+
+// ==========================================
+// LETTER TEMPLATES
+// ==========================================
+
+const LETTER_TEMPLATES = {
+  workOrder: {
+    completion: {
+      name: "Work Order Completion Notice",
+      subject: "Work Order Completed - {referenceNumber}",
+      generate: (data) => `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; margin-bottom: 5px;">LJ Services Group</h1>
+            <p style="color: #64748b; margin: 0;">Professional Property Management</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 0;"><strong>Reference:</strong> ${data.referenceNumber}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>To:</strong></p>
+            <p style="margin: 0;">${data.recipientName}</p>
+            ${data.recipientAddress ? `<p style="margin: 0;">${data.recipientAddress.replace(/\n/g, '<br>')}</p>` : ''}
+            ${data.recipientEmail ? `<p style="margin: 0;">${data.recipientEmail}</p>` : ''}
+          </div>
+
+          <h2 style="color: #1e293b; margin-top: 30px;">Work Order Completion Notice</h2>
+
+          <p>Dear ${data.recipientName},</p>
+
+          <p>We are writing to inform you that the following work order has been completed:</p>
+
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Property:</strong> ${data.association}</p>
+            <p style="margin: 0;"><strong>Work Order:</strong> ${data.title}</p>
+            <p style="margin: 0;"><strong>Vendor:</strong> ${data.vendor || 'N/A'}</p>
+            <p style="margin: 0;"><strong>Completed Date:</strong> ${new Date().toLocaleDateString()}</p>
+            ${data.estimatedCost ? `<p style="margin: 0;"><strong>Total Cost:</strong> $${data.estimatedCost}</p>` : ''}
+          </div>
+
+          <p><strong>Work Performed:</strong></p>
+          <p>${data.description || 'No description provided.'}</p>
+
+          ${data.customNotes ? `
+            <p><strong>Additional Notes:</strong></p>
+            <p>${data.customNotes}</p>
+          ` : ''}
+
+          <p>If you have any questions or concerns regarding this work order, please do not hesitate to contact us.</p>
+
+          <div style="margin-top: 40px;">
+            <p style="margin: 0;">Best regards,</p>
+            <p style="margin: 0;"><strong>LJ Services Group</strong></p>
+            <p style="margin: 0; color: #64748b;">Property Management Team</p>
+          </div>
+
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
+            <p style="margin: 0;">LJ Services Group</p>
+            <p style="margin: 0;">Miami, FL</p>
+            <p style="margin: 0;">Phone: [Your Phone]</p>
+            <p style="margin: 0;">Email: info@ljservicesgroup.com</p>
+          </div>
+        </div>
+      `
+    },
+    proposal: {
+      name: "Work Order Proposal",
+      subject: "Work Proposal - {referenceNumber}",
+      generate: (data) => `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; margin-bottom: 5px;">LJ Services Group</h1>
+            <p style="color: #64748b; margin: 0;">Professional Property Management</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 0;"><strong>Reference:</strong> ${data.referenceNumber}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>To:</strong></p>
+            <p style="margin: 0;">${data.recipientName}</p>
+            ${data.recipientAddress ? `<p style="margin: 0;">${data.recipientAddress.replace(/\n/g, '<br>')}</p>` : ''}
+            ${data.recipientEmail ? `<p style="margin: 0;">${data.recipientEmail}</p>` : ''}
+          </div>
+
+          <h2 style="color: #1e293b; margin-top: 30px;">Work Proposal</h2>
+
+          <p>Dear ${data.recipientName},</p>
+
+          <p>We are pleased to present the following work proposal for your property:</p>
+
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Property:</strong> ${data.association}</p>
+            <p style="margin: 0;"><strong>Proposed Work:</strong> ${data.title}</p>
+            <p style="margin: 0;"><strong>Vendor:</strong> ${data.vendor || 'TBD'}</p>
+            ${data.estimatedCost ? `<p style="margin: 0;"><strong>Estimated Cost:</strong> $${data.estimatedCost}</p>` : ''}
+          </div>
+
+          <p><strong>Scope of Work:</strong></p>
+          <p>${data.description || 'No description provided.'}</p>
+
+          ${data.customNotes ? `
+            <p><strong>Additional Information:</strong></p>
+            <p>${data.customNotes}</p>
+          ` : ''}
+
+          <p>Please review this proposal and let us know if you have any questions or require any modifications.</p>
+
+          <div style="margin-top: 40px;">
+            <p style="margin: 0;">Best regards,</p>
+            <p style="margin: 0;"><strong>LJ Services Group</strong></p>
+            <p style="margin: 0; color: #64748b;">Property Management Team</p>
+          </div>
+
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
+            <p style="margin: 0;">LJ Services Group</p>
+            <p style="margin: 0;">Miami, FL</p>
+            <p style="margin: 0;">Phone: [Your Phone]</p>
+            <p style="margin: 0;">Email: info@ljservicesgroup.com</p>
+          </div>
+        </div>
+      `
+    }
+  },
+  violation: {
+    firstNotice: {
+      name: "1st Notice - Violation Warning",
+      subject: "First Notice - CC&R Violation - {referenceNumber}",
+      generate: (data) => `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; margin-bottom: 5px;">LJ Services Group</h1>
+            <p style="color: #64748b; margin: 0;">Professional Property Management</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 0;"><strong>Reference:</strong> ${data.referenceNumber}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>To:</strong></p>
+            <p style="margin: 0;">${data.recipientName}</p>
+            ${data.recipientAddress ? `<p style="margin: 0;">${data.recipientAddress.replace(/\n/g, '<br>')}</p>` : ''}
+            ${data.recipientEmail ? `<p style="margin: 0;">${data.recipientEmail}</p>` : ''}
+          </div>
+
+          <h2 style="color: #dc2626; margin-top: 30px;">FIRST NOTICE - CC&R VIOLATION</h2>
+
+          <p>Dear ${data.recipientName},</p>
+
+          <p>This letter serves as a <strong>First Notice</strong> regarding a violation of the Covenants, Conditions, and Restrictions (CC&Rs) at your property.</p>
+
+          <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Property:</strong> ${data.association}</p>
+            <p style="margin: 0;"><strong>Violation:</strong> ${data.title}</p>
+            <p style="margin: 0;"><strong>Rule Violated:</strong> ${data.ruleBroken || 'See CC&Rs'}</p>
+            <p style="margin: 0;"><strong>Notice Date:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <p><strong>Violation Details:</strong></p>
+          <p>${data.description || 'No description provided.'}</p>
+
+          <p><strong>Required Action:</strong></p>
+          <p>You are required to correct this violation within <strong>14 days</strong> from the date of this notice.</p>
+
+          ${data.customNotes ? `
+            <p><strong>Additional Information:</strong></p>
+            <p>${data.customNotes}</p>
+          ` : ''}
+
+          <p>Failure to comply with this notice may result in further action, including additional notices and potential fines as outlined in your association's governing documents.</p>
+
+          <p>If you have any questions or need clarification, please contact our office immediately.</p>
+
+          <div style="margin-top: 40px;">
+            <p style="margin: 0;">Sincerely,</p>
+            <p style="margin: 0;"><strong>LJ Services Group</strong></p>
+            <p style="margin: 0; color: #64748b;">Property Management Team</p>
+          </div>
+
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
+            <p style="margin: 0;">LJ Services Group</p>
+            <p style="margin: 0;">Miami, FL</p>
+            <p style="margin: 0;">Phone: [Your Phone]</p>
+            <p style="margin: 0;">Email: info@ljservicesgroup.com</p>
+          </div>
+        </div>
+      `
+    },
+    secondNotice: {
+      name: "2nd Notice - Final Warning",
+      subject: "Second Notice - CC&R Violation - {referenceNumber}",
+      generate: (data) => `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; margin-bottom: 5px;">LJ Services Group</h1>
+            <p style="color: #64748b; margin: 0;">Professional Property Management</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 0;"><strong>Reference:</strong> ${data.referenceNumber}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>To:</strong></p>
+            <p style="margin: 0;">${data.recipientName}</p>
+            ${data.recipientAddress ? `<p style="margin: 0;">${data.recipientAddress.replace(/\n/g, '<br>')}</p>` : ''}
+            ${data.recipientEmail ? `<p style="margin: 0;">${data.recipientEmail}</p>` : ''}
+          </div>
+
+          <h2 style="color: #dc2626; margin-top: 30px;">SECOND NOTICE - FINAL WARNING</h2>
+
+          <p>Dear ${data.recipientName},</p>
+
+          <p>This letter serves as a <strong>Second and Final Notice</strong> regarding a continuing violation of the CC&Rs at your property.</p>
+
+          <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Property:</strong> ${data.association}</p>
+            <p style="margin: 0;"><strong>Violation:</strong> ${data.title}</p>
+            <p style="margin: 0;"><strong>Rule Violated:</strong> ${data.ruleBroken || 'See CC&Rs'}</p>
+            <p style="margin: 0;"><strong>First Notice Date:</strong> [Date of First Notice]</p>
+            <p style="margin: 0;"><strong>This Notice Date:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <p><strong>Violation Details:</strong></p>
+          <p>${data.description || 'No description provided.'}</p>
+
+          <p style="color: #dc2626; font-weight: bold;">⚠️ URGENT ACTION REQUIRED:</p>
+          <p>You must correct this violation within <strong>7 days</strong> from the date of this notice to avoid further action.</p>
+
+          ${data.customNotes ? `
+            <p><strong>Additional Information:</strong></p>
+            <p>${data.customNotes}</p>
+          ` : ''}
+
+          <p><strong>Consequences of Non-Compliance:</strong></p>
+          <p>Failure to comply with this notice will result in:</p>
+          <ul>
+            <li>Monetary fines as outlined in the governing documents</li>
+            <li>Potential legal action</li>
+            <li>Suspension of voting rights</li>
+            <li>Other remedies available under Florida law and the association's governing documents</li>
+          </ul>
+
+          <p>Please contact our office immediately if you have any questions or need assistance in resolving this matter.</p>
+
+          <div style="margin-top: 40px;">
+            <p style="margin: 0;">Sincerely,</p>
+            <p style="margin: 0;"><strong>LJ Services Group</strong></p>
+            <p style="margin: 0; color: #64748b;">Property Management Team</p>
+          </div>
+
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
+            <p style="margin: 0;">LJ Services Group</p>
+            <p style="margin: 0;">Miami, FL</p>
+            <p style="margin: 0;">Phone: [Your Phone]</p>
+            <p style="margin: 0;">Email: info@ljservicesgroup.com</p>
+          </div>
+        </div>
+      `
+    },
+    thirdNotice: {
+      name: "3rd Notice - Pre-Fine Notice",
+      subject: "Third Notice - Fine Pending - {referenceNumber}",
+      generate: (data) => `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; margin-bottom: 5px;">LJ Services Group</h1>
+            <p style="color: #64748b; margin: 0;">Professional Property Management</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 0;"><strong>Reference:</strong> ${data.referenceNumber}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>To:</strong></p>
+            <p style="margin: 0;">${data.recipientName}</p>
+            ${data.recipientAddress ? `<p style="margin: 0;">${data.recipientAddress.replace(/\n/g, '<br>')}</p>` : ''}
+            ${data.recipientEmail ? `<p style="margin: 0;">${data.recipientEmail}</p>` : ''}
+          </div>
+
+          <h2 style="color: #dc2626; margin-top: 30px;">THIRD NOTICE - FINES WILL BE ASSESSED</h2>
+
+          <p>Dear ${data.recipientName},</p>
+
+          <p>This is your <strong>Third Notice</strong> regarding an ongoing violation at your property. Despite previous notices, this violation remains uncorrected.</p>
+
+          <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Property:</strong> ${data.association}</p>
+            <p style="margin: 0;"><strong>Violation:</strong> ${data.title}</p>
+            <p style="margin: 0;"><strong>Rule Violated:</strong> ${data.ruleBroken || 'See CC&Rs'}</p>
+            <p style="margin: 0;"><strong>First Notice:</strong> [Date]</p>
+            <p style="margin: 0;"><strong>Second Notice:</strong> [Date]</p>
+            <p style="margin: 0;"><strong>This Notice:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <p><strong>Violation Details:</strong></p>
+          <p>${data.description || 'No description provided.'}</p>
+
+          <p style="color: #dc2626; font-weight: bold; font-size: 18px;">⚠️ IMMEDIATE ACTION REQUIRED</p>
+          
+          <p><strong>You have 5 days from the date of this letter to:</strong></p>
+          <ol>
+            <li>Correct the violation completely, OR</li>
+            <li>Request a hearing before the Board of Directors</li>
+          </ol>
+
+          <div style="background-color: #fff7ed; border: 2px solid #f97316; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: bold; color: #f97316;">⚠️ FINE SCHEDULE</p>
+            <p style="margin: 10px 0 0 0;">If this violation is not corrected within 5 days:</p>
+            <ul style="margin: 10px 0 0 0;">
+              <li>Initial fine: $[Amount] per day</li>
+              <li>Continuing fines until violation is corrected</li>
+              <li>Legal fees and costs will be added</li>
+            </ul>
+          </div>
+
+          ${data.customNotes ? `
+            <p><strong>Additional Information:</strong></p>
+            <p>${data.customNotes}</p>
+          ` : ''}
+
+          <p><strong>Right to Hearing:</strong></p>
+          <p>You have the right to request a hearing before the Board of Directors. To request a hearing, you must contact our office in writing within 5 days of receiving this notice.</p>
+
+          <p>This is your final opportunity to resolve this matter without financial penalties.</p>
+
+          <div style="margin-top: 40px;">
+            <p style="margin: 0;">Sincerely,</p>
+            <p style="margin: 0;"><strong>LJ Services Group</strong></p>
+            <p style="margin: 0; color: #64748b;">Property Management Team</p>
+          </div>
+
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
+            <p style="margin: 0;">LJ Services Group</p>
+            <p style="margin: 0;">Miami, FL</p>
+            <p style="margin: 0;">Phone: [Your Phone]</p>
+            <p style="margin: 0;">Email: info@ljservicesgroup.com</p>
+          </div>
+        </div>
+      `
+    },
+    finalNotice: {
+      name: "Final Notice - Fines Assessed",
+      subject: "Final Notice - Fines Assessed - {referenceNumber}",
+      generate: (data) => `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; margin-bottom: 5px;">LJ Services Group</h1>
+            <p style="color: #64748b; margin: 0;">Professional Property Management</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 0;"><strong>Reference:</strong> ${data.referenceNumber}</p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0;"><strong>To:</strong></p>
+            <p style="margin: 0;">${data.recipientName}</p>
+            ${data.recipientAddress ? `<p style="margin: 0;">${data.recipientAddress.replace(/\n/g, '<br>')}</p>` : ''}
+            ${data.recipientEmail ? `<p style="margin: 0;">${data.recipientEmail}</p>` : ''}
+          </div>
+
+          <h2 style="color: #7f1d1d; margin-top: 30px;">FINAL NOTICE - FINES HAVE BEEN ASSESSED</h2>
+
+          <p>Dear ${data.recipientName},</p>
+
+          <p>This is your <strong>Final Notice</strong>. The Board of Directors has assessed fines for the continuing violation at your property.</p>
+
+          <div style="background-color: #7f1d1d; color: white; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold;">FINES ASSESSED</p>
+            <p style="margin: 10px 0 0 0;"><strong>Total Amount Due: $[Amount]</strong></p>
+            <p style="margin: 5px 0 0 0;">Due Date: [Date]</p>
+          </div>
+
+          <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Property:</strong> ${data.association}</p>
+            <p style="margin: 0;"><strong>Violation:</strong> ${data.title}</p>
+            <p style="margin: 0;"><strong>Rule Violated:</strong> ${data.ruleBroken || 'See CC&Rs'}</p>
+            <p style="margin: 0;"><strong>Violation History:</strong></p>
+            <ul style="margin: 5px 0 0 20px;">
+              <li>First Notice: [Date]</li>
+              <li>Second Notice: [Date]</li>
+              <li>Third Notice: [Date]</li>
+              <li>Final Notice: ${new Date().toLocaleDateString()}</li>
+            </ul>
+          </div>
+
+          <p><strong>Violation Details:</strong></p>
+          <p>${data.description || 'No description provided.'}</p>
+
+          <p><strong>Fine Breakdown:</strong></p>
+          <ul>
+            <li>Daily fine: $[Amount] × [Days] = $[Subtotal]</li>
+            <li>Administrative fees: $[Amount]</li>
+            <li><strong>Total Due: $[Total Amount]</strong></li>
+          </ul>
+
+          <div style="background-color: #fff7ed; border: 2px solid #f97316; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: bold;">⚠️ PAYMENT INSTRUCTIONS</p>
+            <p style="margin: 10px 0 0 0;">Payment must be received by [Due Date].</p>
+            <p style="margin: 5px 0 0 0;">Make check payable to: ${data.association}</p>
+            <p style="margin: 5px 0 0 0;">Reference: ${data.referenceNumber}</p>
+          </div>
+
+          ${data.customNotes ? `
+            <p><strong>Additional Information:</strong></p>
+            <p>${data.customNotes}</p>
+          ` : ''}
+
+          <p><strong>Next Steps if Non-Payment:</strong></p>
+          <ul>
+            <li>Late fees will be added</li>
+            <li>Account will be turned over to collections</li>
+            <li>Legal action may be pursued</li>
+            <li>Lien may be placed on property</li>
+          </ul>
+
+          <p>The violation must still be corrected in addition to paying the assessed fines. Continued non-compliance will result in additional daily fines.</p>
+
+          <p>If you have questions or wish to discuss a payment plan, please contact our office immediately.</p>
+
+          <div style="margin-top: 40px;">
+            <p style="margin: 0;">Sincerely,</p>
+            <p style="margin: 0;"><strong>LJ Services Group</strong></p>
+            <p style="margin: 0; color: #64748b;">Property Management Team</p>
+          </div>
+
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
+            <p style="margin: 0;">LJ Services Group</p>
+            <p style="margin: 0;">Miami, FL</p>
+            <p style="margin: 0;">Phone: [Your Phone]</p>
+            <p style="margin: 0;">Email: info@ljservicesgroup.com</p>
+            <p style="margin: 0; margin-top: 10px; font-style: italic;">This is an official notice from your Association's management company acting under the authority of the Board of Directors.</p>
+          </div>
+        </div>
+      `
+    }
+  }
+};
+
+// ==========================================
+// PDF GENERATION FUNCTIONS
+// ==========================================
+
+let currentPdfData = null;
+
+function openPdfLetterModal(itemType, itemData) {
+  // Store the current item data
+  currentPdfData = {
+    itemType: itemType,
+    ...itemData
+  };
+
+  // Show the modal
+  const modal = document.getElementById('pdfLetterModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+  }
+
+  // Populate letter type dropdown
+  populateLetterTypeDropdown(itemType);
+
+  // Populate team member checkboxes
+  populateTeamMemberCheckboxes();
+
+  // Pre-fill some data if available
+  if (itemData.association) {
+    // Could pre-fill recipient info if available
+  }
+}
+
+function populateLetterTypeDropdown(itemType) {
+  const dropdown = document.getElementById('letterType');
+  if (!dropdown) return;
+
+  dropdown.innerHTML = '<option value="">Select letter type...</option>';
+
+  const templates = LETTER_TEMPLATES[itemType];
+  if (!templates) return;
+
+  Object.entries(templates).forEach(([key, template]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = template.name;
+    dropdown.appendChild(option);
+  });
+
+  // Listen for changes
+  dropdown.addEventListener('change', updateLetterPreview);
+}
+
+function populateTeamMemberCheckboxes() {
+  const container = document.getElementById('ccCheckboxes');
+  if (!container) return;
+
+  container.innerHTML = LJ_STATE.teamMembers.map((member, index) => `
+    <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer">
+      <input type="checkbox" value="${member.email}" class="cc-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+      <span class="text-sm text-slate-700">${member.name} (${member.email})</span>
+    </label>
+  `).join('');
+}
+
+function updateLetterPreview() {
+  const letterType = document.getElementById('letterType').value;
+  const recipientName = document.getElementById('recipientName').value || '[Recipient Name]';
+  const recipientEmail = document.getElementById('recipientEmail').value || '';
+  const recipientAddress = document.getElementById('recipientAddress').value || '';
+  const customNotes = document.getElementById('customNotes').value || '';
+
+  const preview = document.getElementById('letterPreview');
+  if (!preview || !letterType || !currentPdfData) return;
+
+  const template = LETTER_TEMPLATES[currentPdfData.itemType][letterType];
+  if (!template) return;
+
+  const data = {
+    ...currentPdfData,
+    recipientName,
+    recipientEmail,
+    recipientAddress,
+    customNotes
+  };
+
+  preview.innerHTML = template.generate(data);
+}
+
+// Update preview when inputs change
+function initPdfModalListeners() {
+  ['recipientName', 'recipientEmail', 'recipientAddress', 'customNotes'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', updateLetterPreview);
+    }
+  });
+}
+
+function closePdfModal() {
+  const modal = document.getElementById('pdfLetterModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+  currentPdfData = null;
+}
+
+async function downloadPdfLetter() {
+  const letterType = document.getElementById('letterType').value;
+  if (!letterType || !currentPdfData) {
+    showToast('Please select a letter type', 'error');
+    return;
+  }
+
+  const recipientName = document.getElementById('recipientName').value;
+  if (!recipientName) {
+    showToast('Please enter recipient name', 'error');
+    return;
+  }
+
+  // Get the letter HTML
+  const preview = document.getElementById('letterPreview');
+  const letterHtml = preview.innerHTML;
+
+  // Use html2pdf library (you'll need to include this in your HTML)
+  try {
+    const opt = {
+      margin: 0.5,
+      filename: `${currentPdfData.itemType}-${currentPdfData.referenceNumber}-${letterType}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    // Generate PDF
+    await html2pdf().set(opt).from(letterHtml).save();
+    
+    showToast('PDF downloaded successfully!', 'success');
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    showToast('Failed to generate PDF. Please try again.', 'error');
+  }
+}
+
+async function sendPdfLetter() {
+  const letterType = document.getElementById('letterType').value;
+  const recipientName = document.getElementById('recipientName').value;
+  const recipientEmail = document.getElementById('recipientEmail').value;
+
+  if (!letterType || !currentPdfData) {
+    showToast('Please select a letter type', 'error');
+    return;
+  }
+
+  if (!recipientName || !recipientEmail) {
+    showToast('Please enter recipient name and email', 'error');
+    return;
+  }
+
+  // Get CC emails
+  const ccCheckboxes = document.querySelectorAll('.cc-checkbox:checked');
+  const ccEmails = Array.from(ccCheckboxes).map(cb => cb.value);
+  
+  const additionalCC = document.getElementById('additionalCC').value;
+  if (additionalCC) {
+    const additionalEmails = additionalCC.split(',').map(e => e.trim()).filter(e => e);
+    ccEmails.push(...additionalEmails);
+  }
+
+  // Get the letter HTML
+  const preview = document.getElementById('letterPreview');
+  const letterHtml = preview.innerHTML;
+
+  // Get subject line
+  const template = LETTER_TEMPLATES[currentPdfData.itemType][letterType];
+  const subject = template.subject.replace('{referenceNumber}', currentPdfData.referenceNumber);
+
+  // In a real implementation, you would send this via email API
+  // For now, we'll show a confirmation
+  const emailData = {
+    to: recipientEmail,
+    cc: ccEmails,
+    subject: subject,
+    html: letterHtml
+  };
+
+  console.log('Email data:', emailData);
+
+  showToast(`Letter will be sent to ${recipientEmail} with ${ccEmails.length} CC recipients`, 'success');
+  
+  // TODO: Implement actual email sending via backend API
+  // Example: await sendEmailViaAPI(emailData);
+
+  closePdfModal();
+}
+
+// ==========================================
+// ADD BUTTON TO WORK ORDER/VIOLATION DETAIL VIEW
+// ==========================================
+
+// Add this button HTML to your detail view for work orders and violations:
+const PDF_BUTTON_HTML = `
+  <button onclick="openPdfLetterModal('workOrder', currentItemData)" 
+    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+    Generate Letter
+  </button>
+`;
+
+// For violations, use:
+// onclick="openPdfLetterModal('violation', currentItemData)"
+
+console.log('✅ PDF Letter Generation System Loaded!');
