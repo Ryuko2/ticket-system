@@ -438,18 +438,7 @@ function handleCreateViolation(e) {
       console.error("Error creating violation:", err);
       showToast("Error creating violation", "error");
     });
-}
 
-  LJ_STATE.db.ref("violations").push(data)
-    .then(() => {
-      showToast("Violation created successfully!", "success");
-      form.reset();
-      closeDrawer("drawerViolation");
-    })
-    .catch(err => {
-      console.error("Error creating violation:", err);
-      showToast("Error creating violation", "error");
-    });
 
 
 function generateReferenceNumber(prefix) {
