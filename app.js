@@ -3,10 +3,40 @@
 // Enhanced with Bulk Actions & Advanced Features
 // ============================================
 
+// --- Authentication Guard ---
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    // User is signed in.
+    console.log("Authenticated user:", user.email);
+    LJ_STATE.currentUser = user;
+    // Fetch user role
+    firebase.database().ref('/users/' + user.uid).once('value')
+      .then(snapshot => {
+        if (snapshot.exists()) {
+          LJ_STATE.currentUser.role = snapshot.val().role;
+          console.log("User role:", LJ_STATE.currentUser.role);
+        } else {
+          LJ_STATE.currentUser.role = "default"; // Assign a default role if not found
+          console.log("User role not found, assigning default:", LJ_STATE.currentUser.role);
+        }
+        initializeApp();
+      })
+      .catch(error => {
+        console.error("Error fetching user role:", error);
+        LJ_STATE.currentUser.role = "default"; // Assign default on error
+        initializeApp(); // Still initialize even if role fetching fails
+      });
+  } else {
+    // No user is signed in.
+    window.location.href = 'login.html';
+  }
+});
+
 console.log("🚀 Loading Professional CRM with Bulk Actions...");
 
 const LJ_STATE = {
   db: null,
+  currentUser: null,
   tickets: {},
   workOrders: {},
   violations: {},
@@ -78,26 +108,29 @@ const REGISTRATION_STATE = {
 };
 
 // ---------- Initialization ----------
-
-document.addEventListener("DOMContentLoaded", () => {
-  try {
-    initFirebaseBinding();
-    initUserProfile();
-    initDashboardNavigation();
-    initDrawers();
-    initModal();
-    initSearch();
-    initFilters();
-    initFileUpload();
-    initExport();
-    initBulkActions();
-    initRealtimeListeners();
-    initLogoutButton();
-    console.log("✅ Professional CRM initialized with Bulk Actions!");
-  } catch (err) {
-    console.error("❌ Error initializing app:", err);
-  }
-});
+function initializeApp() {
+  document.addEventListener("DOMContentLoaded", () => {
+    try {
+      initFirebaseBinding();
+      initUserProfile();
+      initDashboardNavigation();
+      initDrawers();
+      initModal();
+      initSearch();
+      initFilters();
+      initFileUpload();
+      initExport();
+      initBulkActions();
+      initRealtimeListeners();
+      initLogoutButton();
+      initWhatsAppDashboard();
+      initPdfLetterGeneration();
+      console.log("✅ Professional CRM initialized with Bulk Actions!");
+    } catch (err) => {
+      console.error("❌ Error initializing app:", err);
+    }
+  });
+}
 
 function initFirebaseBinding() {
   if (!window.firebase || !firebase.apps.length) {
@@ -116,17 +149,23 @@ function initFirebaseBinding() {
 function initUserProfile() {
   const nameEl = document.getElementById("userName");
   const emailEl = document.getElementById("userEmail");
-  const user = window.currentUser || { name: "Kevin R", email: "kevinr@ljservicesgroup.com" };
+  const user = LJ_STATE.currentUser;
   
-  if (nameEl) nameEl.textContent = user.name || "User";
-  if (emailEl) emailEl.textContent = user.email || "";
-  console.log("✅ User:", user.email);
+  if (user) {
+    if (nameEl) nameEl.textContent = user.displayName || user.email;
+    if (emailEl) emailEl.textContent = user.email;
+    console.log("✅ User:", user.email);
+  }
 }
 
 function initLogoutButton() {
   const btn = document.getElementById("logoutBtn");
   if (btn) {
-    btn.addEventListener("click", () => alert("Logout logic here"));
+    btn.addEventListener("click", () => {
+      firebase.auth().signOut().then(() => {
+        window.location.href = 'login.html';
+      });
+    });
   }
 }
 
@@ -190,6 +229,11 @@ function initDashboardNavigation() {
       clearBulkSelection();
       renderCurrentView();
     }
+    else if (type === "whatsapp") {
+      if (titleEl) titleEl.textContent = "WhatsApp Conversations";
+      if (subtitleEl) subtitleEl.textContent = "Conversations from WhatsApp.";
+      loadWhatsAppConversations();
+    }
     else if (type === "violations") {
       if (titleEl) titleEl.textContent = "Violations Dashboard";
       if (subtitleEl) subtitleEl.textContent = "CC&R enforcement.";
@@ -221,6 +265,24 @@ function initDashboardNavigation() {
   
   // Initialize registrations dashboard
   console.log("✅ Registrations dashboard initialized");
+
+  // Role-based dashboard visibility
+  if (LJ_STATE.currentUser && LJ_STATE.currentUser.role === "client") {
+    // Hide specific dashboards for clients
+    document.querySelector('[data-dashboard="workOrders"]').classList.add('hidden');
+    document.querySelector('[data-dashboard="violations"]').classList.add('hidden');
+    document.querySelector('[data-dashboard="registrations"]').classList.add('hidden');
+    document.querySelectorAll('[data-dashboard="whatsapp"]').forEach(el => el.classList.add('hidden')); // There are two whatsapp buttons
+    
+    // Hide these options from the mobile select as well
+    const mobileSelect = document.getElementById("mobileDashboardSelect");
+    if (mobileSelect) {
+      mobileSelect.querySelector('option[value="workOrders"]')?.remove();
+      mobileSelect.querySelector('option[value="violations"]')?.remove();
+      mobileSelect.querySelector('option[value="registrations"]')?.remove();
+      mobileSelect.querySelector('option[value="whatsapp"]')?.remove();
+    }
+  }
 }
 
 // ---------- Drawers (Ticket, Work Order, Violation) ----------
@@ -231,6 +293,13 @@ function initDrawers() {
 
   // Open drawer buttons
   document.querySelectorAll("[data-open-drawer]").forEach((btn) => {
+    if (LJ_STATE.currentUser.role === "client") {
+      const drawerType = btn.dataset.openDrawer;
+      if (drawerType === "workOrder" || drawerType === "violation") {
+        btn.classList.add("hidden"); // Hide button for clients
+        return;
+      }
+    }
     btn.addEventListener("click", () => {
       const drawerType = btn.dataset.openDrawer;
       openDrawer(`drawer${capitalize(drawerType)}`);
@@ -315,6 +384,7 @@ function handleCreateTicket(e) {
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
     referenceNumber: generateReferenceNumber("TKT"),
+    createdBy: LJ_STATE.currentUser.uid,
   };
 
   LJ_STATE.db.ref("tickets").push(data)
@@ -343,6 +413,7 @@ function handleCreateWorkOrder(e) {
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
     referenceNumber: generateReferenceNumber("WO"),
+    createdBy: LJ_STATE.currentUser.uid,
   };
 
   LJ_STATE.db.ref("workOrders").push(data)
@@ -360,6 +431,7 @@ function handleCreateWorkOrder(e) {
 function handleCreateViolation(e) {
   e.preventDefault();
   const form = e.target;
+  const letterHTMLContent = document.getElementById("violationLetterHTML").value;
   const data = {
     type: "violation",
     title: form.title.value,
@@ -368,9 +440,11 @@ function handleCreateViolation(e) {
     noticeStep: form.noticeStep.value,
     status: form.status.value,
     description: form.description.value || "",
+    letterHTML: letterHTMLContent || null,
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
     referenceNumber: generateReferenceNumber("VIO"),
+    createdBy: LJ_STATE.currentUser.uid,
   };
 
   LJ_STATE.db.ref("violations").push(data)
@@ -398,11 +472,13 @@ function initModal() {
   const deleteBtn = document.getElementById("deleteItemBtn");
   const exportBtn = document.getElementById("exportCsvBtn");
   const commentForm = document.getElementById("commentForm");
+  const generateLetterBtn = document.getElementById("generateLetterBtn");
 
   if (closeBtn) closeBtn.addEventListener("click", handleCloseItem);
   if (deleteBtn) deleteBtn.addEventListener("click", handleDeleteItem);
   if (exportBtn) exportBtn.addEventListener("click", handleExportItem);
   if (commentForm) commentForm.addEventListener("submit", handleAddComment);
+  if (generateLetterBtn) generateLetterBtn.addEventListener("click", () => openPdfModal(LJ_STATE.currentItem));
 }
 
 function openModal(itemType, itemKey) {
@@ -497,6 +573,11 @@ window.closeModal = closeModal;
 
 function handleCloseItem() {
   if (!LJ_STATE.currentItem) return;
+
+  if (LJ_STATE.currentItem.data.createdBy !== LJ_STATE.currentUser.uid) {
+    showToast("You can only close items that you have created.", "error");
+    return;
+  }
   
   if (confirm("Mark this item as closed?")) {
     const { type, key } = LJ_STATE.currentItem;
@@ -516,6 +597,11 @@ function handleCloseItem() {
 
 function handleDeleteItem() {
   if (!LJ_STATE.currentItem) return;
+
+  if (LJ_STATE.currentItem.data.createdBy !== LJ_STATE.currentUser.uid) {
+    showToast("You can only delete items that you have created.", "error");
+    return;
+  }
   
   if (confirm("Are you sure you want to delete this item? This action cannot be undone.")) {
     const { type, key } = LJ_STATE.currentItem;
@@ -552,7 +638,8 @@ function handleAddComment(e) {
 
   const comment = {
     text,
-    author: window.currentUser?.name || "Kevin R",
+    author: LJ_STATE.currentUser.email,
+    authorId: LJ_STATE.currentUser.uid,
     timestamp: new Date().toISOString(),
   };
 
@@ -1024,6 +1111,75 @@ function initRealtimeListeners() {
 }
 
 // ---------- Rendering ----------
+
+function loadWhatsAppConversations() {
+    const whatsappRef = db.ref('whatsapp_conversations');
+    const ticketsRef = db.ref('tickets');
+
+    whatsappRef.on('value', async (snapshot) => {
+        const conversations = snapshot.val() || {};
+        const ticketsSnapshot = await ticketsRef.once('value');
+        const tickets = ticketsSnapshot.val() || {};
+
+        const conversationsArray = Object.entries(conversations).map(([phone, data]) => {
+            const relatedTickets = Object.values(tickets).filter(t => 
+                t.reporterPhone === phone && t.source === 'whatsapp'
+            );
+
+            return {
+                phone: phone,
+                ...data,
+                ticketCount: relatedTickets.length,
+                latestTicket: relatedTickets.length > 0 ? relatedTickets[0] : null
+            };
+        });
+
+        conversationsArray.sort((a, b) => 
+            new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+        );
+
+        const total = conversationsArray.length;
+        const withTickets = conversationsArray.filter(c => c.ticketCount > 0).length;
+        const active = conversationsArray.filter(c => c.status === 'active').length;
+        const conversionRate = total > 0 ? Math.round((withTickets / total) * 100) : 0;
+
+        document.getElementById('totalConversations').textContent = total;
+        document.getElementById('conversationsWithTickets').textContent = withTickets;
+        document.getElementById('activeConversations').textContent = active;
+        document.getElementById('conversionRate').textContent = conversionRate + '%';
+
+        const tbody = document.getElementById('whatsappTableBody');
+        if (conversationsArray.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No conversations yet</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = conversationsArray.map(conv => {
+            const lastMessage = conv.messages && conv.messages.length > 0 
+                ? conv.messages[conv.messages.length - 1].content 
+                : 'No messages';
+            const messageCount = conv.messages ? conv.messages.length : 0;
+            const date = new Date(conv.updatedAt || conv.createdAt).toLocaleString();
+            
+            const statusColor = conv.status === 'active' ? '#4CAF50' : '#999';
+            const ticketLink = conv.latestTicket 
+                ? `<a href="#" onclick="alert('Ticket: ${conv.latestTicket.id}'); return false;" style="color: #2196F3;">${conv.latestTicket.id}</a>`
+                : '<span style="color: #999;">None</span>';
+
+            return `
+                <tr>
+                    <td><strong>${conv.profileName || 'Unknown'}</strong></td>
+                    <td>${conv.phoneNumber}</td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${lastMessage}</td>
+                    <td>${messageCount}</td>
+                    <td><span style="color: ${statusColor};">●</span> ${conv.status}</td>
+                    <td>${ticketLink}</td>
+                    <td>${date}</td>
+                </tr>
+            `;
+        }).join('');
+    });
+}
 
 function renderCurrentView() {
   const activeView = getCurrentActiveView();
@@ -1712,7 +1868,319 @@ function showRegistrationsError(message) {
 // Export function to global scope
 window.showRegistrationsTab = showRegistrationsTab;
 
-console.log("✅ LJ Services CRM with Bulk Actions and Registrations loaded successfully!");
+
+function initPdfLetterGeneration() {
+  const letterTypeSelect = document.getElementById("letterType");
+  const ccCheckboxesDiv = document.getElementById("ccCheckboxes");
+
+  // Populate Letter Types
+  for (const itemType in LETTER_TEMPLATES) {
+    for (const templateType in LETTER_TEMPLATES[itemType]) {
+      const template = LETTER_TEMPLATES[itemType][templateType];
+      const option = document.createElement("option");
+      option.value = `${itemType}:${templateType}`;
+      option.textContent = template.name;
+      letterTypeSelect.appendChild(option);
+    }
+  }
+
+  // Populate CC Team Members
+  LJ_STATE.teamMembers.forEach(member => {
+    const div = document.createElement("div");
+    div.className = "flex items-center";
+    div.innerHTML = `
+      <input type="checkbox" id="cc-${member.name.replace(/\s/g, '-')}" value="${member.email}"
+        class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+      <label for="cc-${member.name.replace(/\s/g, '-')}" class="ml-2 text-sm text-slate-700">${member.name} (${member.email})</label>
+    `;
+    ccCheckboxesDiv.appendChild(div);
+  });
+
+  // Event Listeners
+  letterTypeSelect.addEventListener("change", updateLetterPreview);
+  document.getElementById("recipientName").addEventListener("input", updateLetterPreview);
+  document.getElementById("recipientEmail").addEventListener("input", updateLetterPreview);
+  document.getElementById("recipientAddress").addEventListener("input", updateLetterPreview);
+  document.getElementById("customNotes").addEventListener("input", updateLetterPreview);
+}
+
+function openPdfModal(item) {
+  if (!item) return;
+
+  LJ_STATE.currentItem = { type: item.type, key: item.key, data: item.data };
+
+  const modal = document.getElementById("pdfLetterModal");
+  if (!modal) return;
+
+  // Clear previous selections and input fields
+  const letterTypeSelect = document.getElementById("letterType");
+  const recipientNameInput = document.getElementById("recipientName");
+  const recipientEmailInput = document.getElementById("recipientEmail");
+  const recipientAddressTextarea = document.getElementById("recipientAddress");
+  const additionalCCInput = document.getElementById("additionalCC");
+  const customNotesTextarea = document.getElementById("customNotes");
+  const letterPreviewDiv = document.getElementById("letterPreview");
+
+  letterTypeSelect.value = "";
+  recipientNameInput.value = "";
+  recipientEmailInput.value = "";
+  recipientAddressTextarea.value = "";
+  additionalCCInput.value = "";
+  customNotesTextarea.value = "";
+  letterPreviewDiv.innerHTML = '<p class="text-slate-400 text-center py-8">Select a letter type to preview</p>';
+
+  // Uncheck all CC checkboxes
+  document.querySelectorAll('#ccCheckboxes input[type="checkbox"]').forEach(checkbox => {
+    checkbox.checked = false;
+  });
+
+  // Try to pre-select a letter type based on the current item's type
+  if (item.type === "workOrder" && LETTER_TEMPLATES.workOrder && LETTER_TEMPLATES.workOrder.completion) {
+    letterTypeSelect.value = "workOrder:completion";
+  } else if (item.type === "violation" && LETTER_TEMPLATES.violation && LETTER_TEMPLATES.violation.firstNotice) {
+    letterTypeSelect.value = "violation:firstNotice";
+  }
+  // No default for 'ticket' as there isn't a generic template explicitly defined for it yet.
+
+  modal.classList.remove("hidden");
+
+  // If a default letter type was set, update the preview
+  if (letterTypeSelect.value) {
+    updateLetterPreview();
+  }
+}
+
+function closePdfModal() {
+  const modal = document.getElementById("pdfLetterModal");
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+}
+
+// Make closePdfModal global for onclick in HTML
+window.closePdfModal = closePdfModal;
+
+function updateLetterPreview() {
+  const letterTypeSelect = document.getElementById("letterType");
+  const letterPreviewDiv = document.getElementById("letterPreview");
+
+  if (!letterTypeSelect.value) {
+    letterPreviewDiv.innerHTML = '<p class="text-slate-400 text-center py-8">Select a letter type to preview</p>';
+    return;
+  }
+
+  const [itemType, templateType] = letterTypeSelect.value.split(":");
+  const template = LETTER_TEMPLATES[itemType]?.[templateType];
+
+  if (!template || !LJ_STATE.currentItem) {
+    letterPreviewDiv.innerHTML = '<p class="text-rose-500 text-center py-8">Error: Could not load template.</p>';
+    return;
+  }
+
+  const recipientName = document.getElementById("recipientName").value;
+  const recipientEmail = document.getElementById("recipientEmail").value;
+  const recipientAddress = document.getElementById("recipientAddress").value;
+  const customNotes = document.getElementById("customNotes").value;
+
+  const data = {
+    ...LJ_STATE.currentItem.data,
+    referenceNumber: LJ_STATE.currentItem.data.referenceNumber || "N/A", // Ensure referenceNumber exists
+    recipientName,
+    recipientEmail,
+    recipientAddress,
+    customNotes,
+  };
+
+  letterPreviewDiv.innerHTML = template.generate(data);
+}
+
+function downloadPdfLetter() {
+  if (!LJ_STATE.currentItem) {
+    showToast("No item selected for letter generation.", "error");
+    return;
+  }
+
+  const letterTypeSelect = document.getElementById("letterType");
+  if (!letterTypeSelect.value) {
+    showToast("Please select a letter type first.", "error");
+    return;
+  }
+
+  const [itemType, templateType] = letterTypeSelect.value.split(":");
+  const template = LETTER_TEMPLATES[itemType]?.[templateType];
+
+  if (!template) {
+    showToast("Invalid letter template selected.", "error");
+    return;
+  }
+
+  const recipientName = document.getElementById("recipientName").value;
+  const recipientAddress = document.getElementById("recipientAddress").value;
+  const customNotes = document.getElementById("customNotes").value;
+
+  const data = {
+    ...LJ_STATE.currentItem.data,
+    referenceNumber: LJ_STATE.currentItem.data.referenceNumber || "N/A",
+    recipientName,
+    recipientAddress,
+    customNotes,
+  };
+
+  const filename = `${templateType}_${data.referenceNumber || "document"}.pdf`;
+
+  // Get the HTML content to convert
+  const element = document.getElementById('letterPreview');
+
+  // html2pdf library options
+  const opt = {
+    margin: 1,
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+
+  html2pdf().from(element).set(opt).save();
+  showToast("PDF downloaded successfully!", "success");
+}
+
+window.downloadPdfLetter = downloadPdfLetter; // Make global
+
+function sendPdfLetter() {
+  if (!LJ_STATE.currentItem) {
+    showToast("No item selected for email.", "error");
+    return;
+  }
+
+  const letterTypeSelect = document.getElementById("letterType");
+  if (!letterTypeSelect.value) {
+    showToast("Please select a letter type first.", "error");
+    return;
+  }
+
+  const [itemType, templateType] = letterTypeSelect.value.split(":");
+  const template = LETTER_TEMPLATES[itemType]?.[templateType];
+
+  if (!template) {
+    showToast("Invalid letter template selected.", "error");
+    return;
+  }
+
+  const recipientEmail = document.getElementById("recipientEmail").value.trim();
+  if (!recipientEmail) {
+    showToast("Recipient email is required to send the letter.", "error");
+    return;
+  }
+
+  const recipientName = document.getElementById("recipientName").value;
+  const recipientAddress = document.getElementById("recipientAddress").value;
+  const customNotes = document.getElementById("customNotes").value;
+  const additionalCC = document.getElementById("additionalCC").value.trim();
+
+  const ccEmails = [];
+  document.querySelectorAll('#ccCheckboxes input[type="checkbox"]:checked').forEach(checkbox => {
+    ccEmails.push(checkbox.value);
+  });
+  if (additionalCC) {
+    additionalCC.split(',').forEach(email => {
+      const trimmedEmail = email.trim();
+      if (trimmedEmail) ccEmails.push(trimmedEmail);
+    });
+  }
+  
+  const data = {
+    ...LJ_STATE.currentItem.data,
+    referenceNumber: LJ_STATE.currentItem.data.referenceNumber || "N/A",
+    recipientName,
+    recipientEmail,
+    recipientAddress,
+    customNotes,
+  };
+
+  const subject = template.subject.replace("{referenceNumber}", data.referenceNumber);
+  const body = `Dear ${recipientName},\n\nPlease find attached the ${template.name} regarding your item ${data.referenceNumber}.\n\n${customNotes}\n\nBest regards,\nLJ Services Group`;
+
+  // Construct mailto link
+  let mailtoLink = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  if (ccEmails.length > 0) {
+    mailtoLink += `&cc=${encodeURIComponent(ccEmails.join(','))}`;
+  }
+
+  window.open(mailtoLink, '_blank');
+  showToast("Email client opened with pre-filled details. Please attach the PDF manually.", "info");
+  closePdfModal();
+}
+
+window.downloadPdfLetter = downloadPdfLetter; // Make global
+
+function sendPdfLetter() {
+  if (!LJ_STATE.currentItem) {
+    showToast("No item selected for email.", "error");
+    return;
+  }
+
+  const letterTypeSelect = document.getElementById("letterType");
+  if (!letterTypeSelect.value) {
+    showToast("Please select a letter type first.", "error");
+    return;
+  }
+
+  const [itemType, templateType] = letterTypeSelect.value.split(":");
+  const template = LETTER_TEMPLATES[itemType]?.[templateType];
+
+  if (!template) {
+    showToast("Invalid letter template selected.", "error");
+    return;
+  }
+
+  const recipientEmail = document.getElementById("recipientEmail").value.trim();
+  if (!recipientEmail) {
+    showToast("Recipient email is required to send the letter.", "error");
+    return;
+  }
+
+  const recipientName = document.getElementById("recipientName").value;
+  const recipientAddress = document.getElementById("recipientAddress").value;
+  const customNotes = document.getElementById("customNotes").value;
+  const additionalCC = document.getElementById("additionalCC").value.trim();
+
+  const ccEmails = [];
+  document.querySelectorAll('#ccCheckboxes input[type="checkbox"]:checked').forEach(checkbox => {
+    ccEmails.push(checkbox.value);
+  });
+  if (additionalCC) {
+    additionalCC.split(',').forEach(email => {
+      const trimmedEmail = email.trim();
+      if (trimmedEmail) ccEmails.push(trimmedEmail);
+    });
+  }
+  
+  const data = {
+    ...LJ_STATE.currentItem.data,
+    referenceNumber: LJ_STATE.currentItem.data.referenceNumber || "N/A",
+    recipientName,
+    recipientEmail,
+    recipientAddress,
+    customNotes,
+  };
+
+  const subject = template.subject.replace("{referenceNumber}", data.referenceNumber);
+  const body = `Dear ${recipientName},\n\nPlease find attached the ${template.name} regarding your item ${data.referenceNumber}.\n\n${customNotes}\n\nBest regards,\nLJ Services Group`;
+
+  // Construct mailto link
+  let mailtoLink = `mailto:${recipientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  if (ccEmails.length > 0) {
+    mailtoLink += `&cc=${encodeURIComponent(ccEmails.join(','))}`;
+  }
+
+  window.open(mailtoLink, '_blank');
+  showToast("Email client opened with pre-filled details. Please attach the PDF manually.", "info");
+  closePdfModal();
+}
+
+window.sendPdfLetter = sendPdfLetter; // Make global
+
+
 // ==========================================
 // PDF LETTER GENERATION SYSTEM
 // Add this to your app.js file
@@ -2490,3 +2958,196 @@ const PDF_BUTTON_HTML = `
 // onclick="openPdfLetterModal('violation', currentItemData)"
 
 console.log('✅ PDF Letter Generation System Loaded!');
+
+// ============================================
+// WHATSAPP DASHBOARD MODULE
+// ============================================
+let whatsappConversations = [];
+
+function initWhatsAppDashboard() {
+  console.log('📱 Initializing WhatsApp Dashboard...');
+  const whatsappRef = database.ref('whatsapp_conversations');
+  whatsappRef.on('value', (snapshot) => {
+    whatsappConversations = [];
+    snapshot.forEach((childSnapshot) => {
+      const conv = childSnapshot.val();
+      conv.phoneNumber = childSnapshot.key;
+      whatsappConversations.push(conv);
+    });
+    whatsappConversations.sort((a, b) => {
+      const dateA = new Date(b.lastMessageAt || b.startedAt);
+      const dateB = new Date(a.lastMessageAt || a.startedAt);
+      return dateA - dateB;
+    });
+    console.log(`📱 Loaded ${whatsappConversations.length} WhatsApp conversations`);
+    renderWhatsAppDashboard();
+  });
+}
+
+function renderWhatsAppDashboard() {
+  const total = whatsappConversations.length;
+  const tickets = whatsappConversations.filter(c => c.ticketCreated).length;
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const active = whatsappConversations.filter(c => {
+    const lastMsg = new Date(c.lastMessageAt || c.startedAt);
+    return lastMsg > oneDayAgo;
+  }).length;
+  const rate = total > 0 ? Math.round((tickets / total) * 100) : 0;
+  
+  if (document.getElementById('whatsappStatTotal')) {
+    document.getElementById('whatsappStatTotal').textContent = total;
+    document.getElementById('whatsappStatTickets').textContent = tickets;
+    document.getElementById('whatsappStatActive').textContent = active;
+    document.getElementById('whatsappStatRate').textContent = `${rate}%`;
+  }
+  renderWhatsAppList();
+}
+
+function renderWhatsAppList() {
+  const tbody = document.getElementById('whatsappConversationsList');
+  if (!tbody) return;
+  if (whatsappConversations.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-12 text-center text-slate-400"><div class="flex flex-col items-center gap-2"><svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg><p class="text-sm">No conversations yet</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = whatsappConversations.map(conv => {
+    const lastMsg = new Date(conv.lastMessageAt || conv.startedAt);
+    const msgCount = conv.messages ? conv.messages.length : 0;
+    const status = conv.ticketCreated ? 'Resolved' : 'Active';
+    const statusClass = conv.ticketCreated ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700';
+    let ticketRef = '-';
+    if (conv.ticketKey) ticketRef = 'TKT';
+    else if (conv.workOrderKey) ticketRef = 'WO';
+    else if (conv.violationKey) ticketRef = 'VIO';
+    const relTime = formatRelativeTime(lastMsg);
+    return `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="px-4 py-3"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center"><span class="text-xs font-semibold text-green-700">${conv.homeownerName ? conv.homeownerName.charAt(0).toUpperCase() : '?'}</span></div><p class="font-medium text-slate-900 text-xs">${conv.homeownerName || 'Unknown'}</p></div></td><td class="px-4 py-3"><span class="font-mono text-xs text-slate-600">${conv.phoneNumber}</span></td><td class="px-4 py-3"><span class="text-xs text-slate-600">${msgCount}</span></td><td class="px-4 py-3 text-xs text-slate-600">${relTime}</td><td class="px-4 py-3">${conv.ticketCreated ? `<span class="inline-flex px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs">✓ ${ticketRef}</span>` : `<span class="text-xs text-slate-400">-</span>`}</td><td class="px-4 py-3"><span class="inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${status}</span></td><td class="px-4 py-3 text-center"><span class="text-indigo-600 text-xs font-medium cursor-pointer">View →</span></td></tr>`;
+  }).join('');
+}
+
+function formatRelativeTime(date) {
+  const now = new Date();
+  const diff = now - date;
+  const mins = Math.floor(diff / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${days}d ago`;
+}
+
+// NEW: HTML LETTER FEATURE
+function toggleLetterHTMLSection() {
+  const section = document.getElementById('letterHTMLSection');
+  section.classList.toggle('hidden');
+}
+
+function showLetterPreview() {
+  if (!LJ_STATE.currentItem?.data?.letterHTML) {
+    showToast("No letter attached to this violation", "info");
+    return;
+  }
+  
+  const html = LJ_STATE.currentItem.data.letterHTML;
+  displayLetterPreview(html);
+}
+
+function displayLetterPreview(htmlContent) {
+  const previewModal = document.getElementById('letterPreviewModal');
+  const previewContent = document.getElementById('letterPreviewContent');
+  
+  previewContent.innerHTML = ''; // Clear previous content
+  
+  // Create an iframe to render the HTML safely
+  const iframe = document.createElement('iframe');
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.style.border = 'none';
+  previewContent.appendChild(iframe);
+  
+  iframe.contentWindow.document.open();
+  iframe.contentWindow.document.write(htmlContent);
+  iframe.contentWindow.document.close();
+  
+  previewModal.classList.remove('hidden');
+}
+
+function closeLetterPreviewModal() {
+  const previewModal = document.getElementById('letterPreviewModal');
+  previewModal.classList.add('hidden');
+}
+
+function copyLetterHTML() {
+  const html = LJ_STATE.currentItem.data.letterHTML;
+  navigator.clipboard.writeText(html);
+  showToast("Letter HTML copied to clipboard", "success");
+}
+
+function downloadLetterHTML() {
+  const html = LJ_STATE.currentItem.data.letterHTML;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `violation_letter_${LJ_STATE.currentItem.key}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function openLetterInNewTab() {
+  const html = LJ_STATE.currentItem.data.letterHTML;
+  const newWindow = window.open();
+  newWindow.document.write(html);
+  newWindow.document.close();
+}
+
+function emailLetter() {
+  if (!LJ_STATE.currentItem) {
+    showToast("No item selected for email.", "error");
+    return;
+  }
+
+  const subject = `Violation Letter for ${LJ_STATE.currentItem.data.title}`;
+  const body = `Please find the attached violation letter.`;
+
+  let mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  window.open(mailtoLink, '_blank');
+}
+
+function editLetter() {
+  const editModal = document.getElementById('editLetterModal');
+  const editTa = document.getElementById('editLetterTextarea');
+  
+  if (!LJ_STATE.currentItem?.data?.letterHTML) {
+    showToast("No letter attached to this violation", "info");
+    return;
+  }
+
+  editTa.value = LJ_STATE.currentItem.data.letterHTML;
+  editModal.classList.remove('hidden');
+}
+
+function closeEditLetterModal() {
+  const editModal = document.getElementById('editLetterModal');
+  editModal.classList.add('hidden');
+}
+
+function saveEditedLetter() {
+  const newHtml = document.getElementById('editLetterTextarea').value;
+  const { type, key } = LJ_STATE.currentItem;
+  const path = type === "ticket" ? "tickets" : type === "workOrder" ? "workOrders" : "violations";
+
+  LJ_STATE.db.ref(`${path}/${key}/letterHTML`).set(newHtml)
+    .then(() => {
+      showToast("Letter updated successfully!", "success");
+      LJ_STATE.currentItem.data.letterHTML = newHtml;
+      closeEditLetterModal();
+      // Also update the preview if it's open
+      displayLetterPreview(newHtml);
+    })
+    .catch(err => {
+      console.error("Error updating letter:", err);
+      showToast("Error updating letter", "error");
+    });
+}
