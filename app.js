@@ -1090,26 +1090,73 @@ function initRealtimeListeners() {
 // ---------- Rendering ----------
 
 function loadWhatsAppConversations() {
-    const whatsappRef = db.ref('whatsapp_conversations');
-    const ticketsRef = db.ref('tickets');
+  const whatsappRef = LJ_STATE.db.ref('whatsapp_conversations');
+  const ticketsRef = LJ_STATE.db.ref('tickets');
 
-    whatsappRef.on('value', async (snapshot) => {
-        const conversations = snapshot.val() || {};
-        const ticketsSnapshot = await ticketsRef.once('value');
-        const tickets = ticketsSnapshot.val() || {};
+  whatsappRef.on('value', async (snapshot) => {
+    const conversations = snapshot.val() || {};
+    const ticketsSnapshot = await ticketsRef.once('value');
+    const tickets = ticketsSnapshot.val() || {};
 
-        const conversationsArray = Object.entries(conversations).map(([phone, data]) => {
-            const relatedTickets = Object.values(tickets).filter(t => 
-                t.reporterPhone === phone && t.source === 'whatsapp'
-            );
+    const conversationsArray = Object.entries(conversations).map(([phone, data]) => {
+      const relatedTickets = Object.values(tickets).filter(t => 
+        t.reporterPhone === phone && t.source === 'whatsapp'
+      );
 
-            return {
-                phone: phone,
-                ...data,
-                ticketCount: relatedTickets.length,
-                latestTicket: relatedTickets.length > 0 ? relatedTickets[0] : null
-            };
-        });
+      return {
+        phone: phone,
+        ...data,
+        ticketCount: relatedTickets.length,
+        latestTicket: relatedTickets.length > 0 ? relatedTickets[0] : null
+      };
+    });
+
+    conversationsArray.sort((a, b) => 
+      new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+    );
+
+    const total = conversationsArray.length;
+    const withTickets = conversationsArray.filter(c => c.ticketCount > 0).length;
+    const active = conversationsArray.filter(c => c.status === 'active').length;
+    const conversionRate = total > 0 ? Math.round((withTickets / total) * 100) : 0;
+
+    document.getElementById('whatsappTotalConversations').textContent = total;
+    document.getElementById('whatsappTicketsCreated').textContent = withTickets;
+    document.getElementById('whatsappActiveChats').textContent = active;
+    document.getElementById('whatsappConversionRate').textContent = conversionRate + '%';
+
+    const tbody = document.getElementById('whatsappTableBody');
+    if (conversationsArray.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No WhatsApp conversations yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = conversationsArray.map(conv => {
+      const lastMessage = conv.messages && conv.messages.length > 0 
+        ? conv.messages[conv.messages.length - 1].content 
+        : 'No messages';
+      const messageCount = conv.messages ? conv.messages.length : 0;
+      const date = new Date(conv.updatedAt || conv.createdAt).toLocaleString();
+      
+      const statusColor = conv.status === 'active' ? '#4CAF50' : '#999';
+      const ticketLink = conv.latestTicket 
+        ? `<a href="#" onclick="openModal('ticket', '${conv.latestTicket.id}'); return false;" style="color: #2196F3; text-decoration: none; font-weight: 500;">${conv.latestTicket.id}</a>`
+        : '<span style="color: #999;">None</span>';
+
+      return `
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-3"><strong>${conv.profileName || 'Unknown'}</strong></td>
+          <td class="px-4 py-3 text-slate-600">${conv.phoneNumber}</td>
+          <td class="px-4 py-3 text-slate-600" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${lastMessage}</td>
+          <td class="px-4 py-3 text-slate-900">${messageCount}</td>
+          <td class="px-4 py-3"><span style="color: ${statusColor}; font-weight: 500;">●</span> ${conv.status}</td>
+          <td class="px-4 py-3">${ticketLink}</td>
+          <td class="px-4 py-3 text-slate-500">${date}</td>
+        </tr>
+      `;
+    }).join('');
+  });
+}
 
         conversationsArray.sort((a, b) => 
             new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
