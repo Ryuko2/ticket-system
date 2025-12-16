@@ -3,35 +3,6 @@
 // Enhanced with Bulk Actions & Advanced Features
 // ============================================
 
-// --- Authentication Guard ---
-firebase.auth().onAuthStateChanged(function(user) {
-  if (user) {
-    // User is signed in.
-    console.log("Authenticated user:", user.email);
-    LJ_STATE.currentUser = user;
-    // Fetch user role
-    firebase.database().ref('/users/' + user.uid).once('value')
-      .then(snapshot => {
-        if (snapshot.exists()) {
-          LJ_STATE.currentUser.role = snapshot.val().role;
-          console.log("User role:", LJ_STATE.currentUser.role);
-        } else {
-          LJ_STATE.currentUser.role = "default"; // Assign a default role if not found
-          console.log("User role not found, assigning default:", LJ_STATE.currentUser.role);
-        }
-        initializeApp();
-      })
-      .catch(error => {
-        console.error("Error fetching user role:", error);
-        LJ_STATE.currentUser.role = "default"; // Assign default on error
-        initializeApp(); // Still initialize even if role fetching fails
-      });
-  } else {
-    // No user is signed in.
-    window.location.href = 'login.html';
-  }
-});
-
 console.log("🚀 Loading Professional CRM with Bulk Actions...");
 
 const LJ_STATE = {
@@ -106,6 +77,15 @@ const REGISTRATION_STATE = {
     }
   }
 };
+
+// --- SKIP Authentication for now (will add later) ---
+// Just set a mock user for testing
+LJ_STATE.currentUser = {
+  email: "kevinr@ljservicesgroup.com",
+  uid: "kevin-test-user",
+  role: "admin"
+};
+console.log("👤 Using test user:", LJ_STATE.currentUser.email);
 
 // ---------- Initialization ----------
 
