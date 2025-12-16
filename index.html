@@ -120,9 +120,21 @@
           <button type="button" data-dashboard="violations" class="dashboard-tab w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
             <span>Violations Dashboard</span>
           </button>
+          <button type="button" data-dashboard="whatsapp" class="dashboard-tab w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            <span>WhatsApp Conversations</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">📱</span>
+          </button>
           <button type="button" data-dashboard="registrations" class="dashboard-tab w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
             <span>Registrations Dashboard</span>
             <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">📝</span>
+          </button>
+          <button type="button" data-dashboard="whatsapp" class="dashboard-tab w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            <span>WhatsApp Conversations</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">📱</span>
+          </button>
+          <button type="button" data-dashboard="whatsapp" class="dashboard-tab w-full flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            <span>WhatsApp Conversations</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">📱</span>
           </button>
         </div>
       </div>
@@ -145,6 +157,8 @@
             <option value="workOrders">Work Orders Dashboard</option>
             <option value="violations">Violations Dashboard</option>
             <option value="registrations">Registrations Dashboard</option>
+            <option value="whatsapp">WhatsApp Conversations 📱</option>
+            <option value="whatsapp">WhatsApp Conversations 📱</option>
           </select>
         </div>
 
@@ -397,6 +411,90 @@
         </div>
 
         <!-- Violations Dashboard -->
+        <div data-dashboard-view="whatsapp" class="hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Total Conversations</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="totalConversations">0</p>
+                </div>
+                <div class="rounded-full bg-green-100 p-2">
+                  <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Tickets Created</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="conversationsWithTickets">0</p>
+                </div>
+                <div class="rounded-full bg-indigo-100 p-2">
+                  <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Active Chats</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="activeConversations">0</p>
+                </div>
+                <div class="rounded-full bg-blue-100 p-2">
+                  <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Conversion Rate</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="conversionRate">0%</p>
+                </div>
+                <div class="rounded-full bg-amber-100 p-2">
+                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-100 shadow-sm">
+            <div class="p-4 border-b border-slate-100">
+              <h3 class="text-sm font-semibold text-slate-900">WhatsApp Conversations</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-100">
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Homeowner</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Phone</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Last Message</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Messages</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Status</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Ticket</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Date</th>
+                  </tr>
+                </thead>
+                <tbody id="whatsappTableBody">
+                  <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px;">
+                      Loading conversations...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div data-dashboard-view="violations" class="hidden">
           <div class="bg-white rounded-xl border border-slate-100 shadow-sm">
             <div class="px-4 py-3 border-b border-slate-100">
@@ -440,7 +538,202 @@
           </div>
         </div>
 
+        <!-- WhatsApp Conversations Dashboard -->
+        <div data-dashboard-view="whatsapp" class="hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Total Conversations</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatTotal">0</p>
+                </div>
+                <div class="rounded-full bg-green-100 p-2">
+                  <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Tickets Created</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatTickets">0</p>
+                </div>
+                <div class="rounded-full bg-indigo-100 p-2">
+                  <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Active Today</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatActive">0</p>
+                </div>
+                <div class="rounded-full bg-blue-100 p-2">
+                  <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Conversion Rate</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatRate">0%</p>
+                </div>
+                <div class="rounded-full bg-amber-100 p-2">
+                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-100 shadow-sm">
+            <div class="p-4 border-b border-slate-100">
+              <h3 class="text-sm font-semibold text-slate-900">Recent Conversations</h3>
+              <p class="text-xs text-slate-500 mt-1">WhatsApp conversations with homeowners</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-100">
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Homeowner</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Phone</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Messages</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Last Message</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Ticket</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Status</th>
+                    <th class="px-4 py-3 text-center font-medium text-slate-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="whatsappConversationsList">
+                  <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-slate-400">
+                      <div class="flex flex-col items-center gap-2">
+                        <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <p class="text-sm">No WhatsApp conversations yet</p>
+                        <p class="text-xs">Conversations will appear when homeowners message the bot</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
+        <!-- WhatsApp Conversations Dashboard -->
+        <div data-dashboard-view="whatsapp" class="hidden">
+          
+          <!-- Stats Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            
+            <!-- Total Conversations -->
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Total Conversations</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatTotal">0</p>
+                </div>
+                <div class="rounded-full bg-green-100 p-2">
+                  <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tickets Created -->
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Tickets Created</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatTickets">0</p>
+                </div>
+                <div class="rounded-full bg-indigo-100 p-2">
+                  <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active Today -->
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Active Today</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatActive">0</p>
+                </div>
+                <div class="rounded-full bg-blue-100 p-2">
+                  <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Conversion Rate -->
+            <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-slate-500 uppercase">Conversion Rate</p>
+                  <p class="text-2xl font-bold text-slate-900 mt-1" id="whatsappStatRate">0%</p>
+                </div>
+                <div class="rounded-full bg-amber-100 p-2">
+                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conversations List -->
+          <div class="bg-white rounded-xl border border-slate-100 shadow-sm">
+            <div class="p-4 border-b border-slate-100">
+              <h3 class="text-sm font-semibold text-slate-900">Recent Conversations</h3>
+              <p class="text-xs text-slate-500 mt-1">WhatsApp conversations with homeowners</p>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-100">
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Homeowner</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Phone</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Messages</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Last Message</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Ticket</th>
+                    <th class="px-4 py-3 text-left font-medium text-slate-600">Status</th>
+                    <th class="px-4 py-3 text-center font-medium text-slate-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="whatsappConversationsList">
+                  <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-slate-400">
+                      <div class="flex flex-col items-center gap-2">
+                        <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <p class="text-sm">No WhatsApp conversations yet</p>
+                        <p class="text-xs">Conversations will appear when homeowners message the bot</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
     </main>
   </div>
 
@@ -657,14 +950,27 @@
           <label class="block text-xs font-medium text-slate-700 mb-1">Rule Broken*</label>
           <input type="text" name="ruleBroken" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
         </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-700 mb-1">Notice Step*</label>
-          <select name="noticeStep" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg">
-            <option value="1st Notice">1st Notice</option>
-            <option value="2nd Notice">2nd Notice</option>
-            <option value="3rd Notice">3rd Notice</option>
-            <option value="Final Notice">Final Notice</option>
-          </select>
+        <div class="mb-4">
+          <button type="button" onclick="toggleLetterHTMLSection()" 
+            class="text-sm text-indigo-600 hover:text-indigo-700 mb-2 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+            Add Violation Letter (HTML)
+          </button>
+          <div id="letterHTMLSection" class="hidden">
+            <label class="block text-xs font-medium text-slate-700 mb-1">
+              Violation Letter HTML
+              <span class="text-slate-500">(Optional)</span>
+            </label>
+            <textarea id="violationLetterHTML" rows="8"
+              placeholder="Paste your HTML violation letter here..."
+              class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg 
+                     focus:ring-2 focus:ring-rose-500 focus:border-rose-500 
+                     font-mono text-xs">
+            </textarea>
+            <p class="text-xs text-slate-500 mt-1">
+              Paste the complete HTML letter content
+            </p>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-700 mb-1">Status*</label>
@@ -952,6 +1258,12 @@
                     Generate Letter
                   </button>
                   <button 
+                    onclick="showLetterPreview()" 
+                    class="w-full px-3 py-2 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-lg hover:bg-indigo-100 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    View Letter
+                  </button>
+                  <button 
                     id="closeItemBtn"
                     class="w-full px-3 py-2 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-100"
                   >
@@ -1021,6 +1333,70 @@
       </div>
     </div>
   </div>
+
+<!-- Letter Preview Modal -->
+<div id="letterPreviewModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-slate-900">Violation Letter Preview</h2>
+      <button onclick="closeLetterPreviewModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+    <div id="letterPreviewContent" class="flex-1 overflow-y-auto p-6 bg-white border-slate-200" style="max-height: 600px;">
+      <!-- Letter HTML will be rendered here -->
+    </div>
+    <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+      <button onclick="closeLetterPreviewModal()" class="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+        Close
+      </button>
+      <div class="flex gap-2">
+        <button onclick="copyLetterHTML()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2">
+          Copy HTML
+        </button>
+        <button onclick="downloadLetterHTML()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2">
+          Download
+        </button>
+        <button onclick="openLetterInNewTab()" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2">
+          Print
+        </button>
+        <button onclick="emailLetter()" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2">
+          Email
+        </button>
+        <button id="editLetterBtn" onclick="editLetter()" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2">
+          Edit
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Letter Modal -->
+<div id="editLetterModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-slate-900">Edit Violation Letter</h2>
+      <button onclick="closeEditLetterModal()" class="text-slate-400 hover:text-slate-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 bg-white">
+      <textarea id="editLetterTextarea" rows="20"
+        class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg 
+               focus:ring-2 focus:ring-purple-500 focus:border-purple-500 
+               font-mono text-xs">
+      </textarea>
+    </div>
+    <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end bg-slate-50">
+      <button onclick="closeEditLetterModal()" class="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors mr-2">
+        Cancel
+      </button>
+      <button onclick="saveEditedLetter()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
 
   <!-- Toast Container -->
   <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
