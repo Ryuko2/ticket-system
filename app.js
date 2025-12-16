@@ -413,14 +413,15 @@ function handleCreateViolation(e) {
   const letterHTMLInput = document.getElementById("violationLetterHTML");
   const letterHTMLContent = letterHTMLInput ? letterHTMLInput.value : null;
   
+  // Safely get all form values with fallbacks
   const data = {
     type: "violation",
-    title: form.title.value,
-    association: form.association.value,
-    ruleBroken: form.ruleBroken.value,
-    noticeStep: form.noticeStep.value,
-    status: form.status.value,
-    description: form.description.value || "",
+    title: form.elements.title?.value || "",
+    association: form.elements.association?.value || "",
+    ruleBroken: form.elements.ruleBroken?.value || "",
+    noticeStep: form.elements.noticeStep?.value || "",
+    status: form.elements.status?.value || "open",
+    description: form.elements.description?.value || "",
     letterHTML: letterHTMLContent || null,
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
