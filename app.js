@@ -1158,52 +1158,7 @@ function loadWhatsAppConversations() {
   });
 }
 
-        conversationsArray.sort((a, b) => 
-            new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
-        );
-
-        const total = conversationsArray.length;
-        const withTickets = conversationsArray.filter(c => c.ticketCount > 0).length;
-        const active = conversationsArray.filter(c => c.status === 'active').length;
-        const conversionRate = total > 0 ? Math.round((withTickets / total) * 100) : 0;
-
-        document.getElementById('totalConversations').textContent = total;
-        document.getElementById('conversationsWithTickets').textContent = withTickets;
-        document.getElementById('activeConversations').textContent = active;
-        document.getElementById('conversionRate').textContent = conversionRate + '%';
-
-        const tbody = document.getElementById('whatsappTableBody');
-        if (conversationsArray.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No conversations yet</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = conversationsArray.map(conv => {
-            const lastMessage = conv.messages && conv.messages.length > 0 
-                ? conv.messages[conv.messages.length - 1].content 
-                : 'No messages';
-            const messageCount = conv.messages ? conv.messages.length : 0;
-            const date = new Date(conv.updatedAt || conv.createdAt).toLocaleString();
-            
-            const statusColor = conv.status === 'active' ? '#4CAF50' : '#999';
-            const ticketLink = conv.latestTicket 
-                ? `<a href="#" onclick="alert('Ticket: ${conv.latestTicket.id}'); return false;" style="color: #2196F3;">${conv.latestTicket.id}</a>`
-                : '<span style="color: #999;">None</span>';
-
-            return `
-                <tr>
-                    <td><strong>${conv.profileName || 'Unknown'}</strong></td>
-                    <td>${conv.phoneNumber}</td>
-                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${lastMessage}</td>
-                    <td>${messageCount}</td>
-                    <td><span style="color: ${statusColor};">●</span> ${conv.status}</td>
-                    <td>${ticketLink}</td>
-                    <td>${date}</td>
-                </tr>
-            `;
-        }).join('');
-    });
-}
+      
 
 function renderCurrentView() {
   const activeView = getCurrentActiveView();
