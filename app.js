@@ -450,7 +450,7 @@ function handleCreateViolation(e) {
       console.error("Error creating violation:", err);
       showToast("Error creating violation", "error");
     });
-}
+
 
 function generateReferenceNumber(prefix) {
   const timestamp = Date.now().toString().slice(-6);
