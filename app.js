@@ -408,7 +408,11 @@ function handleCreateWorkOrder(e) {
 function handleCreateViolation(e) {
   e.preventDefault();
   const form = e.target;
-  const letterHTMLContent = document.getElementById("violationLetterHTML").value;
+  
+  // Safely get letterHTML value
+  const letterHTMLInput = document.getElementById("violationLetterHTML");
+  const letterHTMLContent = letterHTMLInput ? letterHTMLInput.value : null;
+  
   const data = {
     type: "violation",
     title: form.title.value,
@@ -423,6 +427,18 @@ function handleCreateViolation(e) {
     referenceNumber: generateReferenceNumber("VIO"),
     createdBy: LJ_STATE.currentUser.uid,
   };
+
+  LJ_STATE.db.ref("violations").push(data)
+    .then(() => {
+      showToast("Violation created successfully!", "success");
+      form.reset();
+      closeDrawer("drawerViolation");
+    })
+    .catch(err => {
+      console.error("Error creating violation:", err);
+      showToast("Error creating violation", "error");
+    });
+}
 
   LJ_STATE.db.ref("violations").push(data)
     .then(() => {
