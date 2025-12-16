@@ -108,29 +108,26 @@ const REGISTRATION_STATE = {
 };
 
 // ---------- Initialization ----------
-function initializeApp() {
-  document.addEventListener("DOMContentLoaded", () => {
-    try {
-      initFirebaseBinding();
-      initUserProfile();
-      initDashboardNavigation();
-      initDrawers();
-      initModal();
-      initSearch();
-      initFilters();
-      initFileUpload();
-      initExport();
-      initBulkActions();
-      initRealtimeListeners();
-      initLogoutButton();
-      initWhatsAppDashboard();
-      initPdfLetterGeneration();
-      console.log("✅ Professional CRM initialized with Bulk Actions!");
-    } catch (err) => {
-      console.error("❌ Error initializing app:", err);
-    }
-  });
-}
+
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    initFirebaseBinding();
+    initUserProfile();
+    initDashboardNavigation();
+    initDrawers();
+    initModal();
+    initSearch();
+    initFilters();
+    initFileUpload();
+    initExport();
+    initBulkActions();
+    initRealtimeListeners();
+    initLogoutButton();
+    console.log("✅ Professional CRM initialized with Bulk Actions!");
+  } catch (err) {
+    console.error("❌ Error initializing app:", err);
+  }
+});
 
 function initFirebaseBinding() {
   if (!window.firebase || !firebase.apps.length) {
